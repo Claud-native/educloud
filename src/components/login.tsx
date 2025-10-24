@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { GraduationCap, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Eye, EyeOff, LogIn, Activity, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Checkbox } from './ui/checkbox';
+import { login, healthCheck, HealthCheckResponse } from '../services/api';
 
 interface LoginProps {
   onLogin: (email: string, password: string, userType: 'teacher' | 'student') => void;
@@ -19,6 +20,27 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
+  const handleHealthCheck = async () => {
+    setIsCheckingHealth(true);
+    setError('');
+
+    try {
+      const result = await healthCheck();
+      setHealthStatus(result);
+
+      if (result.status === 'DOWN') {
+        setError('El servidor backend no está disponible');
+      }
+    } catch (error) {
+      console.error('Error en health check:', error);
+      setError('Error al verificar el estado del servidor');
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,13 +58,24 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
 
     setIsLoading(true);
 
-    // Simulación de llamada al backend
-    setTimeout(() => {
+    try {
+      // Llamada real al backend
+      const result = await login({ email, password });
+
+      if (result.success && result.user) {
+        // Login exitoso
+        const userType = result.user.userType === 'TEACHER' ? 'teacher' : 'student';
+        onLogin(email, password, userType);
+      } else {
+        // Login fallido
+        setError(result.message || 'Error al iniciar sesión');
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      setError('Error al conectar con el servidor. Verifica que el backend esté disponible.');
+    } finally {
       setIsLoading(false);
-      // Determinar tipo de usuario basado en el dominio del email (ejemplo)
-      const userType = email.includes('profesor') || email.includes('teacher') ? 'teacher' : 'student';
-      onLogin(email, password, userType);
-    }, 1000);
+    }
   };
 
   return (
@@ -66,6 +99,50 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Health Check Status */}
+            <div className="mb-4 flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Estado del Backend</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {healthStatus && (
+                  <div className="flex items-center gap-2">
+                    {healthStatus.status === 'UP' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-xs text-green-600 font-medium">
+                          Conectado ({healthStatus.responseTime}ms)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 text-red-600" />
+                        <span className="text-xs text-red-600 font-medium">Desconectado</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleHealthCheck}
+                  disabled={isCheckingHealth}
+                  className="h-7 text-xs"
+                >
+                  {isCheckingHealth ? (
+                    <>
+                      <div className="h-3 w-3 mr-1 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                      Verificando...
+                    </>
+                  ) : (
+                    'Verificar'
+                  )}
+                </Button>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">

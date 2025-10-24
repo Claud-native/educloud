@@ -7,6 +7,7 @@ import { GraduationCap, Lock, Mail, Eye, EyeOff, User, Users, BookOpen } from 'l
 import { Alert, AlertDescription } from './ui/alert';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
+import { register } from '../services/api';
 
 interface RegisterProps {
   onRegister: (data: RegisterData) => void;
@@ -18,9 +19,6 @@ export interface RegisterData {
   email: string;
   password: string;
   userType: 'teacher' | 'student';
-  studentId?: string;
-  teacherId?: string;
-  subject?: string;
 }
 
 export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
@@ -30,6 +28,8 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
     password: '',
     userType: 'student',
   });
+  const [apellido1, setApellido1] = useState('');
+  const [apellido2, setApellido2] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -42,7 +42,7 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
     setError('');
 
     // Validaciones
-    if (!formData.name || !formData.email || !formData.password || !confirmPassword) {
+    if (!formData.name || !apellido1 || !formData.email || !formData.password || !confirmPassword) {
       setError('Por favor, completa todos los campos obligatorios');
       return;
     }
@@ -67,23 +67,32 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
       return;
     }
 
-    if (formData.userType === 'student' && !formData.studentId) {
-      setError('El ID de estudiante es obligatorio para alumnos');
-      return;
-    }
-
-    if (formData.userType === 'teacher' && (!formData.teacherId || !formData.subject)) {
-      setError('El ID de profesor y la asignatura son obligatorios para profesores');
-      return;
-    }
-
     setIsLoading(true);
 
-    // Simulación de llamada al backend
-    setTimeout(() => {
+    try {
+      // Llamada real al backend
+      const result = await register({
+        nombre: formData.name,
+        apellido1: apellido1,
+        apellido2: apellido2 || '',
+        email: formData.email,
+        password: formData.password,
+        userType: formData.userType === 'teacher' ? 'TEACHER' : 'STUDENT',
+      });
+
+      if (result.success) {
+        // Registro exitoso, llamar callback con los datos originales
+        onRegister(formData);
+      } else {
+        // Registro fallido
+        setError(result.message || 'Error al registrar usuario');
+      }
+    } catch (error) {
+      console.error('Error en registro:', error);
+      setError('Error al conectar con el servidor. Verifica que el backend esté disponible.');
+    } finally {
       setIsLoading(false);
-      onRegister(formData);
-    }, 1000);
+    }
   };
 
   const updateFormData = (field: keyof RegisterData, value: string) => {
@@ -151,15 +160,49 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
 
               {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre Completo *</Label>
+                <Label htmlFor="name">Nombre *</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="name"
                     type="text"
-                    placeholder="Juan Pérez García"
+                    placeholder="Juan"
                     value={formData.name}
                     onChange={(e) => updateFormData('name', e.target.value)}
+                    className="pl-10"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Apellido1 */}
+              <div className="space-y-2">
+                <Label htmlFor="apellido1">Primer Apellido *</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="apellido1"
+                    type="text"
+                    placeholder="Pérez"
+                    value={apellido1}
+                    onChange={(e) => setApellido1(e.target.value)}
+                    className="pl-10"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Apellido2 */}
+              <div className="space-y-2">
+                <Label htmlFor="apellido2">Segundo Apellido</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="apellido2"
+                    type="text"
+                    placeholder="García"
+                    value={apellido2}
+                    onChange={(e) => setApellido2(e.target.value)}
                     className="pl-10"
                     disabled={isLoading}
                   />
@@ -182,46 +225,6 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
                   />
                 </div>
               </div>
-
-              {/* Student/Teacher ID */}
-              {formData.userType === 'student' ? (
-                <div className="space-y-2">
-                  <Label htmlFor="studentId">ID de Estudiante *</Label>
-                  <Input
-                    id="studentId"
-                    type="text"
-                    placeholder="Ej: EST2024001"
-                    value={formData.studentId || ''}
-                    onChange={(e) => updateFormData('studentId', e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="teacherId">ID de Profesor *</Label>
-                    <Input
-                      id="teacherId"
-                      type="text"
-                      placeholder="Ej: PROF2024001"
-                      value={formData.teacherId || ''}
-                      onChange={(e) => updateFormData('teacherId', e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Asignatura Principal *</Label>
-                    <Input
-                      id="subject"
-                      type="text"
-                      placeholder="Ej: Matemáticas, Física, Lengua..."
-                      value={formData.subject || ''}
-                      onChange={(e) => updateFormData('subject', e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </>
-              )}
 
               {/* Password */}
               <div className="space-y-2">
