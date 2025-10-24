@@ -1,23 +1,27 @@
 import { JSEncrypt } from 'jsencrypt';
 import CryptoJS from 'crypto-js';
 
-// Clave pública RSA del backend desde variables de entorno
-// Fallback a la clave por defecto si no está configurada
-const DEFAULT_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0QFwed5G4KLpGKa9a4GQ
-RZrxRffPBF6yPNrNG5p6wg36CQM8IsoJ5Hwdgq82XPVk9jn1QR4zYbZMIw30TDeH
-+jAcGA2YO6YxPHpa0zvlaE/45wuXUNHhUM07uOP1xowbRyHAAuzYdV1jkTMdCjn9
-fJPP0F796iF5aRs4nxXUF5cVqDUUIlJwBJMa3q2h4lQ+3FGILJBhJzUKk6oRaAvZ
-uEs1ndz+ugLVC1kDwOLG5qRT/zcnPsITVLeWkJ0DXLWqQWlLqlugEJ0ncPON4CuU
-n0yobbJ8aiL/Ymu8FF7DzN1GILL4kGD6Pc/iPvfWdBUDSuhMLGuXyR/CzLy304j1
-fQIDAQAB
------END PUBLIC KEY-----`;
+// Clave pública RSA del backend - OBLIGATORIA desde variables de entorno
+const PUBLIC_KEY = import.meta.env.VITE_RSA_PUBLIC_KEY;
 
-const PUBLIC_KEY = import.meta.env.VITE_RSA_PUBLIC_KEY || DEFAULT_PUBLIC_KEY;
+if (!PUBLIC_KEY) {
+  throw new Error(
+    '🔒 FALTA CONFIGURACIÓN DE SEGURIDAD: ' +
+    'La variable VITE_RSA_PUBLIC_KEY no está configurada. ' +
+    'Crea un archivo .env con la clave pública RSA del backend.'
+  );
+}
 
-// Clave para cifrado simétrico adicional (AES) desde variables de entorno
-const DEFAULT_AES_KEY = 'almi-1234';
-const AES_SECRET_KEY = import.meta.env.VITE_AES_SECRET_KEY || DEFAULT_AES_KEY;
+// Clave para cifrado simétrico AES - OBLIGATORIA desde variables de entorno
+const AES_SECRET_KEY = import.meta.env.VITE_AES_SECRET_KEY;
+
+if (!AES_SECRET_KEY) {
+  throw new Error(
+    '🔒 FALTA CONFIGURACIÓN DE SEGURIDAD: ' +
+    'La variable VITE_AES_SECRET_KEY no está configurada. ' +
+    'Crea un archivo .env con una clave secreta AES.'
+  );
+}
 
 /**
  * Servicio de cifrado para el frontend

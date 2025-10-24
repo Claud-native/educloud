@@ -1,7 +1,7 @@
 import { cryptoService } from './crypto';
 
 // URL base del API desde variables de entorno
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.41:8080/api';
+const API_BASE = import.meta.env.API_HOST || 'http://192.168.0.41:8080/api';
 
 // Tipos para TypeScript
 export interface LoginCredentials {
