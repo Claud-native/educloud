@@ -45,19 +45,19 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
     // Cifrar la contraseña antes de enviarla
     const encryptedPassword = cryptoService.encryptPassword(credentials.password);
 
-    // Generar nonce para prevenir ataques de replay
+    // TODO: Habilitar nonce cuando el backend agregue X-Nonce a CORS
     const nonce = cryptoService.generateNonce();
 
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Nonce': nonce, // Timestamp para validación en backend
+         'X-Nonce': nonce, // Deshabilitado temporalmente por CORS
       },
       body: JSON.stringify({
         email: credentials.email,
         password: encryptedPassword, // Contraseña cifrada con RSA
-        nonce: nonce
+        nonce: nonce // Deshabilitado temporalmente por CORS
       })
     });
 
