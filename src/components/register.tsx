@@ -47,13 +47,25 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
       return;
     }
 
-    if (!formData.email.includes('@')) {
+    // Validación mejorada de email (RFC 5322)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
       setError('Por favor, introduce un email válido');
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    // Validación de complejidad de contraseña
+    if (formData.password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    // Validar que tenga al menos una mayúscula y un número
+    const hasUpperCase = /[A-Z]/.test(formData.password);
+    const hasNumber = /\d/.test(formData.password);
+
+    if (!hasUpperCase || !hasNumber) {
+      setError('La contraseña debe contener al menos una mayúscula y un número');
       return;
     }
 

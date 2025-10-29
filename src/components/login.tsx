@@ -51,8 +51,16 @@ export function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       return;
     }
 
-    if (!email.includes('@')) {
+    // Validación mejorada de email (RFC 5322)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       setError('Por favor, introduce un email válido');
+      return;
+    }
+
+    // Validación mínima de contraseña (solo para UX - la seguridad real está en backend)
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
