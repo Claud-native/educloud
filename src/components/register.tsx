@@ -7,14 +7,14 @@ import { GraduationCap, Lock, Mail, Eye, EyeOff, User, Users, BookOpen } from 'l
 import { Alert, AlertDescription } from './ui/alert';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
-import { register } from '../services/api';
+import { register, RegisterData as ApiRegisterData } from '../services/api';
 
 interface RegisterProps {
-  onRegister: (data: RegisterData) => void;
+  onRegister: (data: FormRegisterData) => void;
   onSwitchToLogin: () => void;
 }
 
-export interface RegisterData {
+export interface FormRegisterData {
   name: string;
   email: string;
   password: string;
@@ -22,7 +22,7 @@ export interface RegisterData {
 }
 
 export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
-  const [formData, setFormData] = useState<RegisterData>({
+  const [formData, setFormData] = useState<FormRegisterData>({
     name: '',
     email: '',
     password: '',
@@ -107,7 +107,7 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
     }
   };
 
-  const updateFormData = (field: keyof RegisterData, value: string) => {
+  const updateFormData = (field: keyof FormRegisterData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

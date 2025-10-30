@@ -246,3 +246,147 @@ export const healthCheck = async (): Promise<HealthCheckResponse> => {
     };
   }
 };
+
+// Cliente HTTP por defecto con autenticación automática
+const api = {
+  async get(endpoint: string) {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        // Mensaje de error específico por código HTTP
+        let message = response.statusText || 'Error desconocido';
+        if (response.status === 403) {
+          message = 'Acceso prohibido. Solo los profesores pueden realizar esta acción.';
+        } else if (response.status === 401) {
+          message = 'No autorizado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 404) {
+          message = 'Recurso no encontrado.';
+        } else if (response.status === 500) {
+          message = 'Error interno del servidor.';
+        }
+        error = { error: `HTTP ${response.status}: ${message}` };
+      }
+      throw error;
+    }
+
+    return response.json();
+  },
+
+  async post(endpoint: string, data?: any) {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        // Mensaje de error específico por código HTTP
+        let message = response.statusText || 'Error desconocido';
+        if (response.status === 403) {
+          message = 'Acceso prohibido. Solo los profesores pueden realizar esta acción.';
+        } else if (response.status === 401) {
+          message = 'No autorizado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 404) {
+          message = 'Recurso no encontrado.';
+        } else if (response.status === 500) {
+          message = 'Error interno del servidor.';
+        }
+        error = { error: `HTTP ${response.status}: ${message}` };
+      }
+      throw error;
+    }
+
+    return response.json();
+  },
+
+  async put(endpoint: string, data?: any) {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        // Mensaje de error específico por código HTTP
+        let message = response.statusText || 'Error desconocido';
+        if (response.status === 403) {
+          message = 'Acceso prohibido. Solo los profesores pueden realizar esta acción.';
+        } else if (response.status === 401) {
+          message = 'No autorizado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 404) {
+          message = 'Recurso no encontrado.';
+        } else if (response.status === 500) {
+          message = 'Error interno del servidor.';
+        }
+        error = { error: `HTTP ${response.status}: ${message}` };
+      }
+      throw error;
+    }
+
+    return response.json();
+  },
+
+  async delete(endpoint: string) {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+      },
+    });
+
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        // Mensaje de error específico por código HTTP
+        let message = response.statusText || 'Error desconocido';
+        if (response.status === 403) {
+          message = 'Acceso prohibido. Solo los profesores pueden realizar esta acción.';
+        } else if (response.status === 401) {
+          message = 'No autorizado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 404) {
+          message = 'Recurso no encontrado.';
+        } else if (response.status === 500) {
+          message = 'Error interno del servidor.';
+        }
+        error = { error: `HTTP ${response.status}: ${message}` };
+      }
+      throw error;
+    }
+
+    return response.json();
+  },
+};
+
+// Exportación por defecto
+export default api;

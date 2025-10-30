@@ -1,40 +1,84 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TeacherDashboard } from './components/teacher-dashboard';
 import { StudentView } from './components/student-view';
 import { AIValuationMobile } from './components/ai-valuation-mobile';
 import { Login } from './components/login';
-import { Register, RegisterData } from './components/register';
+import { Register, FormRegisterData } from './components/register';
 import { GraduationCap, Users, Sparkles, LogOut } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Button } from './components/ui/button';
+import { getCurrentUser, logout } from './services/api';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [userRole, setUserRole] = useState<'teacher' | 'student'>('teacher');
   const [userName, setUserName] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Verificar si hay una sesión existente al cargar la aplicación
+  useEffect(() => {
+    const checkExistingSession = () => {
+      const user = getCurrentUser();
+
+      if (user && user.userType) {
+        // Hay un usuario en localStorage, restaurar la sesión
+        setUserRole(user.userType === 'TEACHER' ? 'teacher' : 'student');
+        setUserName(`${user.nombre} ${user.apellido1}`);
+        setIsAuthenticated(true);
+      }
+
+      setIsCheckingAuth(false);
+    };
+
+    checkExistingSession();
+  }, []);
 
   const handleLogin = (email: string, password: string, userType: 'teacher' | 'student') => {
-    // Aquí se haría la llamada al backend de Spring Boot
-    console.log('Login:', { email, password, userType });
-    setUserRole(userType);
-    setUserName(email.split('@')[0]);
-    setIsAuthenticated(true);
+    // El login real ya se hace en el componente Login
+    // Aquí solo actualizamos el estado de la UI
+    const user = getCurrentUser();
+
+    if (user) {
+      setUserRole(userType);
+      setUserName(`${user.nombre} ${user.apellido1}`);
+      setIsAuthenticated(true);
+    }
   };
 
-  const handleRegister = (data: RegisterData) => {
-    // Aquí se haría la llamada al backend de Spring Boot
-    console.log('Register:', data);
-    setUserRole(data.userType);
-    setUserName(data.name);
-    setIsAuthenticated(true);
+  const handleRegister = (data: FormRegisterData) => {
+    // El registro real ya se hace en el componente Register
+    // Aquí solo actualizamos el estado de la UI
+    const user = getCurrentUser();
+
+    if (user) {
+      setUserRole(data.userType);
+      setUserName(data.name);
+      setIsAuthenticated(true);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Llamar al logout del backend
+    await logout();
+
+    // Limpiar el estado de la UI
     setIsAuthenticated(false);
     setUserName('');
     setShowRegister(false);
   };
+
+  // Mostrar un loader mientras verificamos la sesión
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Si no está autenticado, mostrar login o register
   if (!isAuthenticated) {
