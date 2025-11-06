@@ -2,7 +2,7 @@ import { cryptoService } from './crypto';
 
 // URL base del API desde variables de entorno
 const API_BASE = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.DEV ? 'http://localhost:8080/api' : '');
+  (import.meta.DEV ? 'http://localhost:8080/api' : window.location.origin + '/api');
 
 // Validación en producción
 if (!API_BASE && import.meta.PROD) {
