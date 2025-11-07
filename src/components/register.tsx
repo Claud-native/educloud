@@ -35,11 +35,13 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     // Validaciones
     if (!formData.name || !apellido1 || !formData.email || !formData.password || !confirmPassword) {
@@ -93,8 +95,14 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
       });
 
       if (result.success) {
-        // Registro exitoso, llamar callback con los datos originales
-        onRegister(formData);
+        // Mostrar mensaje de éxito con información del usuario
+        const tipoUsuario = formData.userType === 'teacher' ? 'Profesor' : 'Estudiante';
+        setSuccess(`¡Cuenta creada exitosamente! ${formData.name} ${apellido1} registrado/a como ${tipoUsuario}. Redirigiendo al inicio de sesión...`);
+
+        // Esperar 2 segundos antes de redirigir para que el usuario vea el mensaje
+        setTimeout(() => {
+          onSwitchToLogin();
+        }, 2000);
       } else {
         // Registro fallido
         setError(result.message || 'Error al registrar usuario');
@@ -136,6 +144,12 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {success && (
+                <Alert className="bg-green-50 border-green-200">
+                  <AlertDescription className="text-green-800">{success}</AlertDescription>
                 </Alert>
               )}
 
