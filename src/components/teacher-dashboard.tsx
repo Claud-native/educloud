@@ -11,7 +11,9 @@ import {
   Plus,
   GraduationCap,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ClipboardList,
+  Calendar
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import api from '../services/api';
@@ -36,6 +38,14 @@ interface Estudiante {
   email: string;
 }
 
+interface Tarea {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  fechaEntrega: string;
+  activa: boolean;
+}
+
 export function TeacherDashboard() {
   const [clases, setClases] = useState<Clase[]>([]);
   const [selectedClase, setSelectedClase] = useState<Clase | null>(null);
@@ -43,6 +53,14 @@ export function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [allStudents, setAllStudents] = useState<Estudiante[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [showAddStudentDialog, setShowAddStudentDialog] = useState(false);
+  const [searchEmail, setSearchEmail] = useState('');
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const currentUser = getCurrentUser();
 
   // Form state
@@ -55,15 +73,22 @@ export function TeacherDashboard() {
     anoEscolar: '2024-2025'
   });
 
+  const [newTask, setNewTask] = useState({
+    titulo: '',
+    descripcion: '',
+    fechaEntrega: ''
+  });
+
   // Cargar clases al iniciar
   useEffect(() => {
     loadClases();
   }, []);
 
-  // Cargar estudiantes cuando se selecciona una clase
+  // Cargar estudiantes y tareas cuando se selecciona una clase
   useEffect(() => {
     if (selectedClase) {
       loadEstudiantes(selectedClase.id);
+      loadTareas(selectedClase.id);
     }
   }, [selectedClase]);
 
@@ -130,6 +155,81 @@ export function TeacherDashboard() {
       setError(err.error || err.message || 'Error al crear clase');
     } finally {
       setIsCreatingClass(false);
+    }
+  };
+
+  const loadAllStudents = async () => {
+    try {
+      setIsLoadingStudents(true);
+      const response = await api.get('/usuarios/estudiantes');
+      setAllStudents(response || []);
+    } catch (err: any) {
+      console.error('Error al cargar estudiantes:', err);
+      setAllStudents([]);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+
+  const handleAddStudent = async (estudianteId: number) => {
+    if (!selectedClase) return;
+
+    try {
+      setIsAddingStudent(true);
+      await api.post(`/clases/${selectedClase.id}/estudiantes`, { estudianteId });
+
+      // Recargar lista de estudiantes
+      await loadEstudiantes(selectedClase.id);
+
+      // Cerrar diálogo
+      setShowAddStudentDialog(false);
+      setSearchEmail('');
+    } catch (err: any) {
+      console.error('Error al añadir estudiante:', err);
+      setError(err.error || err.message || 'Error al añadir estudiante');
+    } finally {
+      setIsAddingStudent(false);
+    }
+  };
+
+  const loadTareas = async (claseId: number) => {
+    try {
+      const response = await api.get(`/tareas/clase/${claseId}`);
+      setTareas(response || []);
+    } catch (err: any) {
+      console.error('Error al cargar tareas:', err);
+      setTareas([]);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClase) return;
+
+    try {
+      setIsCreatingTask(true);
+      await api.post('/tareas', {
+        ...newTask,
+        claseId: selectedClase.id
+      });
+
+      // Limpiar formulario
+      setNewTask({
+        titulo: '',
+        descripcion: '',
+        fechaEntrega: ''
+      });
+
+      // Cerrar diálogo
+      setShowCreateTaskDialog(false);
+
+      // Recargar tareas
+      await loadTareas(selectedClase.id);
+    } catch (err: any) {
+      console.error('Error al crear tarea:', err);
+      setError(err.error || err.message || 'Error al crear tarea');
+    } finally {
+      setIsCreatingTask(false);
     }
   };
 
@@ -469,23 +569,183 @@ export function TeacherDashboard() {
       {selectedClase && (
         <Card>
           <CardHeader>
-            <CardTitle>Estudiantes de {selectedClase.nombre}</CardTitle>
-            <CardDescription>
-              {estudiantes.length === 0
-                ? 'No hay estudiantes inscritos aún. Añade estudiantes a esta clase.'
-                : `${estudiantes.length} estudiante${estudiantes.length !== 1 ? 's' : ''} inscrito${estudiantes.length !== 1 ? 's' : ''}`
-              }
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Estudiantes de {selectedClase.nombre}</CardTitle>
+                <CardDescription>
+                  {estudiantes.length === 0
+                    ? 'No hay estudiantes inscritos aún. Añade estudiantes a esta clase.'
+                    : `${estudiantes.length} estudiante${estudiantes.length !== 1 ? 's' : ''} inscrito${estudiantes.length !== 1 ? 's' : ''}`
+                  }
+                </CardDescription>
+              </div>
+              {estudiantes.length > 0 && (
+                <Dialog open={showAddStudentDialog} onOpenChange={setShowAddStudentDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" onClick={loadAllStudents}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Añadir Estudiante
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Añadir Estudiante a {selectedClase?.nombre}</DialogTitle>
+                      <DialogDescription>
+                        Busca y selecciona un estudiante para añadirlo a esta clase
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="search-email-header">Buscar por email</Label>
+                        <Input
+                          id="search-email-header"
+                          placeholder="email@ejemplo.com"
+                          value={searchEmail}
+                          onChange={(e) => setSearchEmail(e.target.value)}
+                        />
+                      </div>
+
+                      {isLoadingStudents ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                        </div>
+                      ) : (
+                        <div className="max-h-96 overflow-y-auto space-y-2">
+                          {allStudents
+                            .filter(student =>
+                              !searchEmail ||
+                              student.email.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                              student.nombre.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                              student.apellido1.toLowerCase().includes(searchEmail.toLowerCase())
+                            )
+                            .filter(student => !estudiantes.some(e => e.id === student.id))
+                            .map((student) => (
+                              <div
+                                key={student.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                              >
+                                <div>
+                                  <p className="font-medium">{student.nombre} {student.apellido1} {student.apellido2}</p>
+                                  <p className="text-sm text-gray-500">{student.email}</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddStudent(student.id)}
+                                  disabled={isAddingStudent}
+                                >
+                                  {isAddingStudent ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Plus className="mr-1 h-4 w-4" />
+                                      Añadir
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          {allStudents.filter(student =>
+                            !searchEmail ||
+                            student.email.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                            student.nombre.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                            student.apellido1.toLowerCase().includes(searchEmail.toLowerCase())
+                          ).filter(student => !estudiantes.some(e => e.id === student.id)).length === 0 && (
+                            <p className="text-center text-gray-500 py-4">
+                              No se encontraron estudiantes disponibles
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {estudiantes.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>Aún no hay estudiantes en esta clase</p>
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Añadir Estudiante
-                </Button>
+                <Dialog open={showAddStudentDialog} onOpenChange={setShowAddStudentDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="mt-4" onClick={loadAllStudents}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Añadir Estudiante
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Añadir Estudiante a {selectedClase?.nombre}</DialogTitle>
+                      <DialogDescription>
+                        Busca y selecciona un estudiante para añadirlo a esta clase
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="search-email">Buscar por email</Label>
+                        <Input
+                          id="search-email"
+                          placeholder="email@ejemplo.com"
+                          value={searchEmail}
+                          onChange={(e) => setSearchEmail(e.target.value)}
+                        />
+                      </div>
+
+                      {isLoadingStudents ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                        </div>
+                      ) : (
+                        <div className="max-h-96 overflow-y-auto space-y-2">
+                          {allStudents
+                            .filter(student =>
+                              !searchEmail ||
+                              student.email.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                              student.nombre.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                              student.apellido1.toLowerCase().includes(searchEmail.toLowerCase())
+                            )
+                            .filter(student => !estudiantes.some(e => e.id === student.id))
+                            .map((student) => (
+                              <div
+                                key={student.id}
+                                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                              >
+                                <div>
+                                  <p className="font-medium">{student.nombre} {student.apellido1} {student.apellido2}</p>
+                                  <p className="text-sm text-gray-500">{student.email}</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAddStudent(student.id)}
+                                  disabled={isAddingStudent}
+                                >
+                                  {isAddingStudent ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Plus className="mr-1 h-4 w-4" />
+                                      Añadir
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          {allStudents.filter(student =>
+                            !searchEmail ||
+                            student.email.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                            student.nombre.toLowerCase().includes(searchEmail.toLowerCase()) ||
+                            student.apellido1.toLowerCase().includes(searchEmail.toLowerCase())
+                          ).length === 0 && (
+                            <p className="text-center text-gray-500 py-4">
+                              No se encontraron estudiantes
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             ) : (
               <Table>
@@ -506,6 +766,140 @@ export function TeacherDashboard() {
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm">
                           Ver Detalles
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sección de Tareas */}
+      {selectedClase && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Tareas de {selectedClase.nombre}
+                </CardTitle>
+                <CardDescription>
+                  {tareas.length === 0
+                    ? 'No hay tareas creadas aún. Crea la primera tarea para evaluar a tus estudiantes.'
+                    : `${tareas.length} tarea${tareas.length !== 1 ? 's' : ''} creada${tareas.length !== 1 ? 's' : ''}`
+                  }
+                </CardDescription>
+              </div>
+              <Dialog open={showCreateTaskDialog} onOpenChange={setShowCreateTaskDialog}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nueva Tarea
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Crear Nueva Tarea</DialogTitle>
+                    <DialogDescription>
+                      Crea una nueva tarea para {selectedClase?.nombre}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateTask} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="titulo">Título de la Tarea *</Label>
+                      <Input
+                        id="titulo"
+                        placeholder="Ej: Ejercicios de Álgebra"
+                        value={newTask.titulo}
+                        onChange={(e) => setNewTask({ ...newTask, titulo: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="descripcion-tarea">Descripción</Label>
+                      <Textarea
+                        id="descripcion-tarea"
+                        placeholder="Descripción de la tarea..."
+                        rows={4}
+                        value={newTask.descripcion}
+                        onChange={(e) => setNewTask({ ...newTask, descripcion: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fechaEntrega" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Fecha de Entrega *
+                      </Label>
+                      <Input
+                        id="fechaEntrega"
+                        type="date"
+                        value={newTask.fechaEntrega}
+                        onChange={(e) => setNewTask({ ...newTask, fechaEntrega: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <Button type="submit" disabled={isCreatingTask} className="flex-1">
+                        {isCreatingTask ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creando...
+                          </>
+                        ) : (
+                          'Crear Tarea'
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowCreateTaskDialog(false)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {tareas.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Aún no hay tareas en esta clase</p>
+                <p className="text-sm mt-2">Crea tareas para evaluar a tus estudiantes</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Fecha de Entrega</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tareas.map((tarea) => (
+                    <TableRow key={tarea.id}>
+                      <TableCell className="font-medium">{tarea.titulo}</TableCell>
+                      <TableCell className="max-w-xs truncate">{tarea.descripcion || 'Sin descripción'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-500" />
+                          {new Date(tarea.fechaEntrega).toLocaleDateString('es-ES')}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          Ver Entregas
                         </Button>
                       </TableCell>
                     </TableRow>

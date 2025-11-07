@@ -210,7 +210,7 @@ export const healthCheck = async (): Promise<HealthCheckResponse> => {
   const startTime = Date.now();
 
   try {
-    const response = await fetch(`${API_BASE}/api/health`, {
+    const response = await fetch(`${API_BASE}/health`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
