@@ -1,423 +1,336 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { 
-  Sparkles, 
-  Camera, 
-  Upload, 
-  TrendingUp, 
-  DollarSign, 
+import { uploadAndAnalyze, validateFile, type EcoPriceResponse } from '@/services/ecopriceApi';
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Package,
   CheckCircle2,
-  X,
-  Image as ImageIcon,
+  Camera,
   Zap,
   BarChart3,
-  Package
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { ScrollArea } from './ui/scroll-area';
 
 export function AIValuationMobile() {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasResult, setHasResult] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [showCamera, setShowCamera] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [result, setResult] = useState<EcoPriceResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
-  const handleAnalyze = () => {
-    setIsAnalyzing(true);
-    setAnalysisProgress(0);
-    
-    const interval = setInterval(() => {
-      setAnalysisProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          setHasResult(true);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
+  const handleFileSelect = (file: File) => {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Archivo no válido');
+      return;
+    }
+
+    setSelectedFile(file);
+    setError(null);
+    setResult(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file));
-      setSelectedImages(prev => [...prev, ...newImages].slice(0, 5));
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      handleFileSelect(files[0]);
     }
   };
 
-  const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
   };
 
-  const recentValuations = [
-    { 
-      id: 1, 
-      item: 'Proyector Epson', 
-      category: 'Electrónica',
-      price: 285, 
-      confidence: 92,
-      date: '20/10/2025'
-    },
-    { 
-      id: 2, 
-      item: 'Mesa Oficina', 
-      category: 'Mobiliario',
-      price: 120, 
-      confidence: 88,
-      date: '18/10/2025'
-    },
-    { 
-      id: 3, 
-      item: 'Microscopio', 
-      category: 'Laboratorio',
-      price: 450, 
-      confidence: 95,
-      date: '15/10/2025'
-    },
-  ];
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await uploadAndAnalyze(selectedFile);
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al analizar la imagen');
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedFile(null);
+    setPreview(null);
+    setResult(null);
+    setError(null);
+  };
 
   return (
-    <div className="max-w-md mx-auto space-y-4 pb-6">
+    <div className="space-y-6">
       {/* Header */}
-      <Card className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-xl">Tasación IA</h2>
-                <p className="text-sm text-purple-100">Valoración inteligente</p>
-              </div>
-            </div>
-          </div>
+      <div className="text-center space-y-2">
+        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-blue-100 px-4 py-2 rounded-full">
+          <Sparkles className="h-4 w-4 text-purple-600" />
+          <span className="text-sm text-purple-700">Powered by Gemini Pro AI</span>
+        </div>
+        <h2 className="text-3xl font-bold">Tasación Inteligente de Objetos</h2>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Utiliza IA de Google Gemini para identificar objetos y comparar precios en economía circular
+        </p>
+      </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 text-center">
-              <Package className="h-4 w-4 mx-auto mb-1" />
-              <p className="text-lg">47</p>
-              <p className="text-xs text-purple-100">Tasados</p>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 text-center">
-              <DollarSign className="h-4 w-4 mx-auto mb-1" />
-              <p className="text-lg">€12K</p>
-              <p className="text-xs text-purple-100">Total</p>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-2 text-center">
-              <TrendingUp className="h-4 w-4 mx-auto mb-1" />
-              <p className="text-lg">91%</p>
-              <p className="text-xs text-purple-100">Precisión</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Stats */}
+      {result && result.success && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Precio Mínimo</p>
+                  <p className="text-3xl font-bold mt-1">€{result.statistics.min}</p>
+                </div>
+                <div className="bg-green-600 p-3 rounded-lg">
+                  <TrendingDown className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50 to-white">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Precio Promedio</p>
+                  <p className="text-3xl font-bold mt-1">€{result.statistics.avg.toFixed(2)}</p>
+                </div>
+                <div className="bg-yellow-600 p-3 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-200 bg-gradient-to-br from-red-50 to-white">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Precio Máximo</p>
+                  <p className="text-3xl font-bold mt-1">€{result.statistics.max}</p>
+                </div>
+                <div className="bg-red-600 p-3 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Camera/Upload Section */}
-      {!hasResult && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upload */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4 text-yellow-500" />
-              Nueva Tasación
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              Analizar Objeto
             </CardTitle>
-            <CardDescription>Captura o selecciona fotos del objeto</CardDescription>
+            <CardDescription>Sube una foto para obtener una tasación con IA</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Image Preview */}
-            {selectedImages.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {selectedImages.map((img, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
-                    <img src={img} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Camera/Upload Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-2"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera className="h-6 w-6 text-blue-600" />
-                <span className="text-sm">Usar Cámara</span>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                  multiple
-                />
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-2"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImageIcon className="h-6 w-6 text-purple-600" />
-                <span className="text-sm">Galería</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                  multiple
-                />
-              </Button>
-            </div>
-
-            {selectedImages.length > 0 && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="item-name">Nombre del Objeto</Label>
-                  <Input 
-                    id="item-name" 
-                    placeholder="Ej: Proyector Epson EB-X41"
-                  />
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer ${
+                dragActive ? 'border-purple-500 bg-purple-50' : preview ? 'border-gray-300' : 'border-gray-300 hover:border-purple-400'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              {preview ? (
+                <div className="text-center">
+                  <img src={preview} alt="Preview" className="max-w-full max-h-64 mx-auto rounded-lg shadow-lg object-contain" />
+                  <button onClick={handleReset} className="mt-4 px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">
+                    Cambiar imagen
+                  </button>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="electronics">Electrónica</SelectItem>
-                      <SelectItem value="furniture">Mobiliario</SelectItem>
-                      <SelectItem value="laboratory">Laboratorio</SelectItem>
-                      <SelectItem value="sports">Material Deportivo</SelectItem>
-                      <SelectItem value="books">Libros</SelectItem>
-                      <SelectItem value="other">Otros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="condition">Estado</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado del objeto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">Nuevo</SelectItem>
-                      <SelectItem value="excellent">Excelente</SelectItem>
-                      <SelectItem value="good">Bueno</SelectItem>
-                      <SelectItem value="fair">Regular</SelectItem>
-                      <SelectItem value="poor">Deteriorado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descripción (opcional)</Label>
-                  <Textarea 
-                    id="description" 
-                    placeholder="Detalles adicionales..."
-                    rows={3}
-                  />
-                </div>
-
-                {isAnalyzing && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Analizando con IA...</span>
-                      <span className="text-blue-600">{analysisProgress}%</span>
+              ) : (
+                <label className="cursor-pointer block text-center">
+                  <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])} className="hidden" />
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="p-4 bg-purple-100 rounded-full">
+                      <Camera className="w-10 h-10 text-purple-600" />
                     </div>
-                    <Progress value={analysisProgress} className="h-2" />
+                    <div>
+                      <p className="text-lg font-semibold mb-1">{dragActive ? 'Suelta la imagen aquí' : 'Arrastra una imagen o haz click'}</p>
+                      <p className="text-sm text-gray-500">PNG, JPG, JPEG, GIF, WEBP (máx 16MB)</p>
+                    </div>
                   </div>
-                )}
+                </label>
+              )}
+            </div>
 
-                <Button 
-                  onClick={handleAnalyze} 
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                  disabled={isAnalyzing}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  {isAnalyzing ? 'Analizando...' : 'Tasar con IA'}
-                </Button>
-              </>
+            <Button onClick={handleAnalyze} disabled={!selectedFile || loading} className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Analizando con Gemini Pro...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Tasar con IA
+                </>
+              )}
+            </Button>
+
+            {error && (
+              <Alert className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-sm text-red-800">{error}</AlertDescription>
+              </Alert>
             )}
           </CardContent>
         </Card>
-      )}
 
-      {/* Result Card */}
-      {hasResult && (
-        <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-green-700">
-                <CheckCircle2 className="h-5 w-5" />
-                Tasación Completada
-              </CardTitle>
-              <Badge className="bg-green-600">92% confianza</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Price Display */}
-            <div className="text-center py-6 border-b border-green-200">
-              <p className="text-sm text-gray-600 mb-2">Precio Estimado</p>
-              <p className="text-5xl text-green-700">€285</p>
-              <p className="text-sm text-gray-600 mt-2">Rango: €250 - €320</p>
-            </div>
+        {/* Results */}
+        <div className="space-y-4">
+          {result && result.success && (
+            <>
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-purple-700">
+                      <CheckCircle2 className="h-5 w-5" />
+                      Objeto Identificado
+                    </CardTitle>
+                    <Badge className="bg-purple-600">{(result.object.confidence * 100).toFixed(0)}% confianza</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">{result.object.name}</h3>
+                    <div className="flex flex-wrap gap-4 text-sm text-gray-700 mb-3">
+                      {result.object.brand && <span><strong>Marca:</strong> {result.object.brand}</span>}
+                      {result.object.model && <span><strong>Modelo:</strong> {result.object.model}</span>}
+                      {result.object.category && <span><strong>Categoría:</strong> {result.object.category}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {result.object.labels.map((label, i) => (
+                        <Badge key={i} variant="outline" className="bg-purple-50">{label}</Badge>
+                      ))}
+                    </div>
+                    {result.object.note && (
+                      <Alert className="mt-4 bg-blue-50 border-blue-200">
+                        <BarChart3 className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-sm text-blue-800">{result.object.note}</AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Confidence */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Confianza de la IA</span>
-                <span>92%</span>
-              </div>
-              <Progress value={92} className="h-2" />
-            </div>
-
-            {/* AI Insight */}
-            <Alert className="bg-blue-50 border-blue-200">
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-sm text-blue-800">
-                Basado en 1,247 ventas similares en los últimos 6 meses
-              </AlertDescription>
-            </Alert>
-
-            {/* Price Factors */}
-            <div className="space-y-2">
-              <h4 className="text-sm">Factores de Precio:</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Buen estado</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Marca reconocida</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Alta demanda</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span>Con accesorios</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-2">
-              <Button className="flex-1 bg-green-600 hover:bg-green-700">
-                Publicar Venta
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => {
-                  setHasResult(false);
-                  setSelectedImages([]);
-                }}
-              >
-                Nueva Tasación
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Valuations */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Historial de Tasaciones</CardTitle>
-          <CardDescription>Objetos valorados recientemente</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-64">
-            <div className="space-y-3">
-              {recentValuations.map((item) => (
-                <Card key={item.id} className="border-l-4 border-l-purple-600">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm">{item.item}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {item.category}
-                          </Badge>
-                          <span className="text-xs text-gray-500">{item.date}</span>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Precios en Plataformas
+                  </CardTitle>
+                  <CardDescription>{result.statistics.count} resultados encontrados</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {result.prices.platforms.map((platform, idx) => (
+                      <div key={idx} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold">{platform.name}</h4>
+                          <Badge variant="outline">{platform.type === 'segunda_mano' ? '♻️ Segunda mano' : '🆕 Nuevo'}</Badge>
                         </div>
-                        <div className="mt-2">
-                          <div className="flex items-center gap-2">
-                            <Progress value={item.confidence} className="h-1 flex-1" />
-                            <span className="text-xs text-gray-500">{item.confidence}%</span>
+                        {platform.listings.length === 0 ? (
+                          <p className="text-sm text-gray-400 italic">No se encontraron resultados</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {platform.listings.slice(0, 3).map((listing, i) => (
+                              <div key={i} className="flex justify-between items-start p-3 bg-gray-50 rounded-lg">
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{listing.title}</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {listing.location && `📍 ${listing.location} • `}
+                                    {listing.condition}
+                                  </div>
+                                </div>
+                                <div className="text-xl font-bold text-green-600 ml-3">€{listing.price}</div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
+                        )}
                       </div>
-                      <div className="text-right ml-3">
-                        <p className="text-lg text-green-700">€{item.price}</p>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {!result && (
+            <Card className="border-purple-200 bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-3 rounded-lg">
+                    <Sparkles className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-2">¿Cómo funciona?</h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Nuestro sistema utiliza Google Gemini Pro para analizar imágenes:
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                        <span>Identificación automática del objeto con IA</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                        <span>Búsqueda de precios en tiempo real</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                        <span>Comparación en múltiples plataformas</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                        <span>Estadísticas de mercado automáticas</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-
-      {/* AI Info */}
-      <Card className="bg-gradient-to-r from-purple-50 via-blue-50 to-purple-50 border-purple-200">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-2 rounded-lg">
-              <Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h4 className="text-sm mb-2">Cómo funciona</h4>
-              <div className="space-y-1.5 text-xs text-gray-600">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span>Análisis de mercado en tiempo real</span>
+                  </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span>Reconocimiento de imágenes con IA</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span>Comparación con ventas similares</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-purple-600 mt-0.5 flex-shrink-0" />
-                  <span>Evaluación de estado y antigüedad</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
