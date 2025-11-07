@@ -61,6 +61,10 @@ export function TeacherDashboard() {
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const [selectedEstudiante, setSelectedEstudiante] = useState<Estudiante | null>(null);
+  const [showEstudianteDialog, setShowEstudianteDialog] = useState(false);
+  const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null);
+  const [showTareaDialog, setShowTareaDialog] = useState(false);
   const currentUser = getCurrentUser();
 
   // Form state
@@ -764,7 +768,14 @@ export function TeacherDashboard() {
                       <TableCell>{estudiante.apellido1} {estudiante.apellido2}</TableCell>
                       <TableCell>{estudiante.email}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEstudiante(estudiante);
+                            setShowEstudianteDialog(true);
+                          }}
+                        >
                           Ver Detalles
                         </Button>
                       </TableCell>
@@ -898,7 +909,14 @@ export function TeacherDashboard() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedTarea(tarea);
+                            setShowTareaDialog(true);
+                          }}
+                        >
                           Ver Entregas
                         </Button>
                       </TableCell>
@@ -910,6 +928,78 @@ export function TeacherDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialog para ver detalles del estudiante */}
+      <Dialog open={showEstudianteDialog} onOpenChange={setShowEstudianteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalles del Estudiante</DialogTitle>
+            <DialogDescription>
+              Información completa del estudiante
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEstudiante && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Nombre Completo</Label>
+                  <p className="mt-1 text-base">
+                    {selectedEstudiante.nombre} {selectedEstudiante.apellido1} {selectedEstudiante.apellido2}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Email</Label>
+                  <p className="mt-1 text-base">{selectedEstudiante.email}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">ID de Usuario</Label>
+                <p className="mt-1 text-base font-mono text-sm">{selectedEstudiante.id}</p>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-500">
+                  Funcionalidades adicionales como historial de entregas, notas y asistencia estarán disponibles próximamente.
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para ver entregas de la tarea */}
+      <Dialog open={showTareaDialog} onOpenChange={setShowTareaDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Entregas de la Tarea</DialogTitle>
+            <DialogDescription>
+              {selectedTarea && `${selectedTarea.titulo} - Vencimiento: ${new Date(selectedTarea.fechaEntrega).toLocaleDateString('es-ES')}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTarea && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Descripción de la Tarea</h4>
+                <p className="text-sm text-gray-700">
+                  {selectedTarea.descripcion || 'Sin descripción'}
+                </p>
+              </div>
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Entregas ({estudiantes.length} estudiantes)
+                </h4>
+                <div className="text-center py-8 text-gray-500">
+                  <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Sistema de entregas en desarrollo</p>
+                  <p className="text-sm mt-2">
+                    Próximamente los estudiantes podrán enviar sus trabajos y tú podrás calificarlos aquí.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

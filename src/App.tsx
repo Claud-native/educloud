@@ -135,29 +135,36 @@ export default function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="teacher" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto mb-6 grid-cols-3">
-            <TabsTrigger value="teacher" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Profesor
-            </TabsTrigger>
-            <TabsTrigger value="student" className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Alumno
-            </TabsTrigger>
+        <Tabs defaultValue={userRole === 'teacher' ? 'teacher' : 'student'} className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto mb-6 grid-cols-2">
+            {userRole === 'teacher' ? (
+              <TabsTrigger value="teacher" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Profesor
+              </TabsTrigger>
+            ) : (
+              <TabsTrigger value="student" className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4" />
+                Alumno
+              </TabsTrigger>
+            )}
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Tasación IA
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="teacher">
-            <TeacherDashboard />
-          </TabsContent>
+          {userRole === 'teacher' && (
+            <TabsContent value="teacher">
+              <TeacherDashboard />
+            </TabsContent>
+          )}
 
-          <TabsContent value="student">
-            <StudentView />
-          </TabsContent>
+          {userRole === 'student' && (
+            <TabsContent value="student">
+              <StudentView />
+            </TabsContent>
+          )}
 
           <TabsContent value="ai">
             <AIValuationMobile />

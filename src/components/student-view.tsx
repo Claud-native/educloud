@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import {
   BookOpen,
   Calendar,
@@ -31,6 +32,8 @@ export function StudentView() {
   const [clases, setClases] = useState<Clase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedClase, setSelectedClase] = useState<Clase | null>(null);
+  const [showClaseDialog, setShowClaseDialog] = useState(false);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -159,7 +162,15 @@ export function StudentView() {
                         </p>
                       )}
                       <div className="mt-3 flex gap-2">
-                        <Button variant="outline" size="sm" className="text-xs flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs flex-1"
+                          onClick={() => {
+                            setSelectedClase(clase);
+                            setShowClaseDialog(true);
+                          }}
+                        >
                           Ver Detalles
                         </Button>
                       </div>
@@ -244,6 +255,51 @@ export function StudentView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog para ver detalles de la clase */}
+      <Dialog open={showClaseDialog} onOpenChange={setShowClaseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalles de la Clase</DialogTitle>
+            <DialogDescription>
+              Información completa de la clase
+            </DialogDescription>
+          </DialogHeader>
+          {selectedClase && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Nombre de la Clase</p>
+                <p className="text-base font-semibold">{selectedClase.nombre}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Materia</p>
+                  <p className="text-base">{selectedClase.materia}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Curso</p>
+                  <p className="text-base">{selectedClase.curso} {selectedClase.grupo}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Año Escolar</p>
+                <p className="text-base">{selectedClase.anoEscolar}</p>
+              </div>
+              {selectedClase.descripcion && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">Descripción</p>
+                  <p className="text-base text-gray-700">{selectedClase.descripcion}</p>
+                </div>
+              )}
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-500">
+                  Funcionalidades adicionales como lista de compañeros, tareas de esta clase y calificaciones específicas estarán disponibles próximamente.
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
