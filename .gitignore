@@ -55,3 +55,15 @@ Thumbs.db
 *.tmp
 *.temp
 
+# Android / Capacitor
+android/
+ios/
+*.apk
+*.aab
+bubblewrap.json
+capacitor.config.json
+
+# PWA Service Worker
+sw.js
+workbox-*.js
+

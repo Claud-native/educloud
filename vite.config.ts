@@ -100,6 +100,7 @@
       outDir: 'build',
     },
     server: {
+      host: '0.0.0.0', // Permite acceso desde otros dispositivos en la red
       port: 5173,
       open: true,
     },
