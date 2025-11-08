@@ -13,8 +13,14 @@ import {
   Bell,
   GraduationCap,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  FileText,
+  Star,
+  Send
 } from 'lucide-react';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import api from '../services/api';
 import { getCurrentUser } from '../services/api';
 
@@ -28,16 +34,39 @@ interface Clase {
   anoEscolar: string;
 }
 
+interface Tarea {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  fechaEntrega: string;
+  claseNombre: string;
+  claseId: number;
+  entregada: boolean;
+  entregaId?: number;
+  contenidoEntrega?: string;
+  fechaEntregaAlumno?: string;
+  estado: string;
+  calificacion?: number;
+  comentarioProfesor?: string;
+}
+
 export function StudentView() {
   const [clases, setClases] = useState<Clase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedClase, setSelectedClase] = useState<Clase | null>(null);
   const [showClaseDialog, setShowClaseDialog] = useState(false);
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [loadingTareas, setLoadingTareas] = useState(false);
+  const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null);
+  const [showTareaDialog, setShowTareaDialog] = useState(false);
+  const [contenidoEntrega, setContenidoEntrega] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const user = getCurrentUser();
 
   useEffect(() => {
     loadClases();
+    loadTareas();
   }, []);
 
   const loadClases = async () => {
@@ -53,6 +82,53 @@ export function StudentView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadTareas = async () => {
+    try {
+      setLoadingTareas(true);
+      console.log('=== FRONTEND: Cargando tareas del estudiante ===');
+      console.log('Usuario actual:', user);
+      const response = await api.get('/tareas/mis-tareas');
+      console.log('Tareas recibidas:', response);
+      setTareas(response || []);
+    } catch (err: any) {
+      console.error('Error al cargar tareas:', err);
+      setTareas([]);
+    } finally {
+      setLoadingTareas(false);
+    }
+  };
+
+  const handleSubmitTarea = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTarea) return;
+
+    try {
+      setIsSubmitting(true);
+      await api.post('/tareas/entregar', {
+        tareaId: selectedTarea.id,
+        contenido: contenidoEntrega
+      });
+
+      // Limpiar y cerrar
+      setContenidoEntrega('');
+      setShowTareaDialog(false);
+
+      // Recargar tareas
+      await loadTareas();
+    } catch (err: any) {
+      console.error('Error al entregar tarea:', err);
+      setError(err.error || err.message || 'Error al entregar tarea');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleViewTarea = (tarea: Tarea) => {
+    setSelectedTarea(tarea);
+    setContenidoEntrega(tarea.contenidoEntrega || '');
+    setShowTareaDialog(true);
   };
 
   if (loading) {
@@ -106,13 +182,17 @@ export function StudentView() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 text-center">
-            <div className="text-2xl font-bold text-green-600">-</div>
-            <div className="text-xs text-gray-600 mt-1">Tareas</div>
+            <div className="text-2xl font-bold text-green-600">{tareas.filter(t => !t.entregada).length}</div>
+            <div className="text-xs text-gray-600 mt-1">Pendientes</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3 text-center">
-            <div className="text-2xl font-bold text-purple-600">-</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {tareas.filter(t => t.calificacion !== undefined).length > 0
+                ? (tareas.filter(t => t.calificacion !== undefined).reduce((sum, t) => sum + (t.calificacion || 0), 0) / tareas.filter(t => t.calificacion !== undefined).length).toFixed(1)
+                : '-'}
+            </div>
             <div className="text-xs text-gray-600 mt-1">Promedio</div>
           </CardContent>
         </Card>
@@ -183,25 +263,78 @@ export function StudentView() {
         </CardContent>
       </Card>
 
-      {/* Próximas Tareas */}
+      {/* Mis Tareas */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
-            Próximas Tareas
+            Mis Tareas
           </CardTitle>
           <CardDescription className="text-xs">
             Mantente al día con tus entregas
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No hay tareas pendientes</p>
-            <p className="text-xs mt-2 text-gray-400">
-              Las tareas asignadas aparecerán aquí
-            </p>
-          </div>
+          {loadingTareas ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : tareas.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No hay tareas asignadas</p>
+              <p className="text-xs mt-2 text-gray-400">
+                Las tareas asignadas por tus profesores aparecerán aquí
+              </p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3">
+                {tareas.map((tarea) => (
+                  <Card key={tarea.id} className="border hover:border-blue-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm mb-1">{tarea.titulo}</h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                            <Badge variant="outline">{tarea.claseNombre}</Badge>
+                            <Badge variant={tarea.entregada ? (tarea.calificacion !== undefined ? 'default' : 'secondary') : tarea.estado === 'RETRASADA' ? 'destructive' : 'outline'}>
+                              {tarea.entregada ? (tarea.calificacion !== undefined ? 'Calificada' : 'Entregada') : tarea.estado}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Vence: {new Date(tarea.fechaEntrega).toLocaleDateString('es-ES')}
+                            </span>
+                            {tarea.calificacion !== undefined && (
+                              <span className="flex items-center gap-1 text-blue-600 font-medium">
+                                <Star className="h-3 w-3" />
+                                {tarea.calificacion}/10
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {tarea.descripcion && (
+                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{tarea.descripcion}</p>
+                      )}
+                      <div className="mt-3">
+                        <Button
+                          size="sm"
+                          className="w-full text-xs"
+                          variant={tarea.entregada ? 'outline' : 'default'}
+                          onClick={() => handleViewTarea(tarea)}
+                        >
+                          {tarea.entregada ? 'Ver Entrega' : 'Entregar Tarea'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
 
@@ -296,6 +429,99 @@ export function StudentView() {
                   Funcionalidades adicionales como lista de compañeros, tareas de esta clase y calificaciones específicas estarán disponibles próximamente.
                 </p>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para entregar tarea */}
+      <Dialog open={showTareaDialog} onOpenChange={setShowTareaDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedTarea?.entregada ? 'Detalles de la Entrega' : 'Entregar Tarea'}</DialogTitle>
+            <DialogDescription>
+              {selectedTarea && `${selectedTarea.titulo} - Vence: ${new Date(selectedTarea.fechaEntrega).toLocaleDateString('es-ES')}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTarea && (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-medium text-sm">Descripción de la tarea:</h4>
+                </div>
+                <p className="text-sm text-gray-700">{selectedTarea.descripcion || 'Sin descripción'}</p>
+              </div>
+
+              {selectedTarea.entregada ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-gray-50 rounded border">
+                    <p className="text-sm font-medium mb-2">Tu entrega:</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTarea.contenidoEntrega}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Entregado el: {selectedTarea.fechaEntregaAlumno && new Date(selectedTarea.fechaEntregaAlumno).toLocaleString('es-ES')}
+                    </p>
+                  </div>
+                  {selectedTarea.calificacion !== undefined && (
+                    <div className="p-3 bg-green-50 rounded border border-green-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-sm">Calificación:</span>
+                        <div className="flex items-center gap-1 text-green-700 font-bold text-lg">
+                          <Star className="h-5 w-5" />
+                          {selectedTarea.calificacion}/10
+                        </div>
+                      </div>
+                      {selectedTarea.comentarioProfesor && (
+                        <>
+                          <p className="text-xs font-medium text-green-700 mt-2">Comentario del profesor:</p>
+                          <p className="text-sm text-green-900 mt-1">{selectedTarea.comentarioProfesor}</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <Button
+                    className="w-full"
+                    onClick={() => setShowTareaDialog(false)}
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitTarea} className="space-y-4">
+                  <div>
+                    <Label htmlFor="contenido">Tu respuesta *</Label>
+                    <Textarea
+                      id="contenido"
+                      value={contenidoEntrega}
+                      onChange={(e) => setContenidoEntrega(e.target.value)}
+                      placeholder="Escribe tu respuesta aquí..."
+                      rows={8}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Describe tu trabajo, adjunta enlaces o escribe tu respuesta completa.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setShowTareaDialog(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" className="flex-1" disabled={isSubmitting || !contenidoEntrega.trim()}>
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar Tarea
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </DialogContent>

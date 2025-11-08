@@ -13,7 +13,10 @@ import {
   Loader2,
   AlertCircle,
   ClipboardList,
-  Calendar
+  Calendar,
+  Star,
+  FileText,
+  Clock
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import api from '../services/api';
@@ -46,6 +49,17 @@ interface Tarea {
   activa: boolean;
 }
 
+interface EntregaTarea {
+  id: number;
+  estudianteId: number;
+  estudianteNombre: string;
+  contenido: string;
+  fechaEntrega: string;
+  estado: string;
+  calificacion: number | null;
+  comentarioProfesor: string | null;
+}
+
 export function TeacherDashboard() {
   const [clases, setClases] = useState<Clase[]>([]);
   const [selectedClase, setSelectedClase] = useState<Clase | null>(null);
@@ -65,6 +79,12 @@ export function TeacherDashboard() {
   const [showEstudianteDialog, setShowEstudianteDialog] = useState(false);
   const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null);
   const [showTareaDialog, setShowTareaDialog] = useState(false);
+  const [entregas, setEntregas] = useState<EntregaTarea[]>([]);
+  const [isLoadingEntregas, setIsLoadingEntregas] = useState(false);
+  const [selectedEntrega, setSelectedEntrega] = useState<EntregaTarea | null>(null);
+  const [showGradeDialog, setShowGradeDialog] = useState(false);
+  const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' });
+  const [isGrading, setIsGrading] = useState(false);
   const currentUser = getCurrentUser();
 
   // Form state
@@ -235,6 +255,54 @@ export function TeacherDashboard() {
     } finally {
       setIsCreatingTask(false);
     }
+  };
+
+  const loadEntregas = async (tareaId: number) => {
+    try {
+      setIsLoadingEntregas(true);
+      const response = await api.get(`/tareas/${tareaId}/entregas`);
+      setEntregas(response || []);
+    } catch (err: any) {
+      console.error('Error al cargar entregas:', err);
+      setEntregas([]);
+    } finally {
+      setIsLoadingEntregas(false);
+    }
+  };
+
+  const handleGradeSubmission = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEntrega) return;
+
+    try {
+      setIsGrading(true);
+      await api.put(`/tareas/entregas/${selectedEntrega.id}/calificar`, {
+        calificacion: parseFloat(gradeForm.calificacion),
+        comentario: gradeForm.comentario
+      });
+
+      // Limpiar formulario
+      setGradeForm({ calificacion: '', comentario: '' });
+
+      // Cerrar diálogo
+      setShowGradeDialog(false);
+
+      // Recargar entregas
+      if (selectedTarea) {
+        await loadEntregas(selectedTarea.id);
+      }
+    } catch (err: any) {
+      console.error('Error al calificar entrega:', err);
+      setError(err.error || err.message || 'Error al calificar entrega');
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
+  const handleViewTarea = async (tarea: Tarea) => {
+    setSelectedTarea(tarea);
+    setShowTareaDialog(true);
+    await loadEntregas(tarea.id);
   };
 
   if (loading) {
@@ -912,10 +980,7 @@ export function TeacherDashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setSelectedTarea(tarea);
-                            setShowTareaDialog(true);
-                          }}
+                          onClick={() => handleViewTarea(tarea)}
                         >
                           Ver Entregas
                         </Button>
@@ -986,17 +1051,138 @@ export function TeacherDashboard() {
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Entregas ({estudiantes.length} estudiantes)
+                  Entregas ({entregas.length} de {estudiantes.length} estudiantes)
                 </h4>
-                <div className="text-center py-8 text-gray-500">
-                  <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Sistema de entregas en desarrollo</p>
-                  <p className="text-sm mt-2">
-                    Próximamente los estudiantes podrán enviar sus trabajos y tú podrás calificarlos aquí.
-                  </p>
-                </div>
+                {isLoadingEntregas ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </div>
+                ) : entregas.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No hay entregas aún</p>
+                    <p className="text-sm mt-2">
+                      Las entregas aparecerán aquí cuando los estudiantes envíen sus trabajos.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {entregas.map((entrega) => (
+                      <div key={entrega.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-medium">{entrega.estudianteNombre}</h5>
+                              <Badge variant={entrega.estado === 'REVISADA' ? 'default' : entrega.estado === 'RETRASADA' ? 'destructive' : 'secondary'}>
+                                {entrega.estado}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                {new Date(entrega.fechaEntrega).toLocaleString('es-ES')}
+                              </span>
+                              {entrega.calificacion !== null && (
+                                <span className="flex items-center gap-1 text-blue-600 font-medium">
+                                  <Star className="h-4 w-4" />
+                                  {entrega.calificacion}/10
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={entrega.calificacion !== null ? 'outline' : 'default'}
+                            onClick={() => {
+                              setSelectedEntrega(entrega);
+                              setGradeForm({
+                                calificacion: entrega.calificacion?.toString() || '',
+                                comentario: entrega.comentarioProfesor || ''
+                              });
+                              setShowGradeDialog(true);
+                            }}
+                          >
+                            {entrega.calificacion !== null ? 'Editar Nota' : 'Calificar'}
+                          </Button>
+                        </div>
+                        <div className="mt-3 p-3 bg-gray-50 rounded border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm font-medium">Contenido de la entrega:</span>
+                          </div>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{entrega.contenido}</p>
+                        </div>
+                        {entrega.comentarioProfesor && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                            <span className="text-xs font-medium text-blue-700">Comentario:</span>
+                            <p className="text-sm text-blue-900 mt-1">{entrega.comentarioProfesor}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para calificar entrega */}
+      <Dialog open={showGradeDialog} onOpenChange={setShowGradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Calificar Entrega</DialogTitle>
+            <DialogDescription>
+              {selectedEntrega && `Estudiante: ${selectedEntrega.estudianteNombre}`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEntrega && (
+            <form onSubmit={handleGradeSubmission} className="space-y-4">
+              <div className="p-3 bg-gray-50 rounded border">
+                <p className="text-sm font-medium mb-2">Contenido entregado:</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedEntrega.contenido}</p>
+              </div>
+              <div>
+                <Label htmlFor="calificacion">Calificación (0-10) *</Label>
+                <Input
+                  id="calificacion"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  value={gradeForm.calificacion}
+                  onChange={(e) => setGradeForm({ ...gradeForm, calificacion: e.target.value })}
+                  required
+                  placeholder="Ej: 8.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="comentario">Comentario (opcional)</Label>
+                <Textarea
+                  id="comentario"
+                  value={gradeForm.comentario}
+                  onChange={(e) => setGradeForm({ ...gradeForm, comentario: e.target.value })}
+                  placeholder="Escribe un comentario para el estudiante..."
+                  rows={4}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setShowGradeDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isGrading}>
+                  {isGrading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar Calificación'
+                  )}
+                </Button>
+              </div>
+            </form>
           )}
         </DialogContent>
       </Dialog>
