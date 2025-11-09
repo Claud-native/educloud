@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -17,7 +17,11 @@ import {
   Clock,
   FileText,
   Star,
-  Send
+  Send,
+  Upload,
+  File,
+  X,
+  Download
 } from 'lucide-react';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -48,6 +52,7 @@ interface Tarea {
   estado: string;
   calificacion?: number;
   comentarioProfesor?: string;
+  archivoUrl?: string;
 }
 
 export function StudentView() {
@@ -62,6 +67,7 @@ export function StudentView() {
   const [showTareaDialog, setShowTareaDialog] = useState(false);
   const [contenidoEntrega, setContenidoEntrega] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -106,13 +112,37 @@ export function StudentView() {
 
     try {
       setIsSubmitting(true);
-      await api.post('/tareas/entregar', {
-        tareaId: selectedTarea.id,
-        contenido: contenidoEntrega
-      });
+
+      // Si hay archivo, usar el endpoint con FormData
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('tareaId', selectedTarea.id.toString());
+        formData.append('contenido', contenidoEntrega);
+        formData.append('archivo', selectedFile);
+
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregar-con-archivo`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al entregar tarea con archivo');
+        }
+      } else {
+        // Sin archivo, usar el endpoint normal
+        await api.post('/tareas/entregar', {
+          tareaId: selectedTarea.id,
+          contenido: contenidoEntrega
+        });
+      }
 
       // Limpiar y cerrar
       setContenidoEntrega('');
+      setSelectedFile(null);
       setShowTareaDialog(false);
 
       // Recargar tareas
@@ -122,6 +152,61 @@ export function StudentView() {
       setError(err.error || err.message || 'Error al entregar tarea');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      // Validar tamaño máximo (50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        setError('El archivo no puede superar los 50MB');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+  };
+
+  const handleDownloadFile = async (entregaId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entregaId}/archivo`, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al descargar archivo');
+      }
+
+      // Obtener el nombre del archivo del header Content-Disposition
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let fileName = 'archivo';
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (fileNameMatch) {
+          fileName = fileNameMatch[1];
+        }
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error('Error al descargar archivo:', err);
+      setError('Error al descargar el archivo');
     }
   };
 
@@ -345,15 +430,76 @@ export function StudentView() {
             <TrendingUp className="h-5 w-5 text-purple-600" />
             Mis Calificaciones
           </CardTitle>
+          <CardDescription className="text-xs">
+            Revisa tus calificaciones y comentarios
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">No hay calificaciones aún</p>
-            <p className="text-xs mt-2 text-gray-400">
-              Tus calificaciones aparecerán aquí cuando sean publicadas
-            </p>
-          </div>
+          {loadingTareas ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : tareas.filter(t => t.calificacion !== undefined).length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No hay calificaciones aún</p>
+              <p className="text-xs mt-2 text-gray-400">
+                Tus calificaciones aparecerán aquí cuando sean publicadas
+              </p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-3">
+                {tareas
+                  .filter(t => t.calificacion !== undefined)
+                  .sort((a, b) => {
+                    // Ordenar por fecha de entrega (más reciente primero)
+                    const dateA = a.fechaEntregaAlumno ? new Date(a.fechaEntregaAlumno).getTime() : 0;
+                    const dateB = b.fechaEntregaAlumno ? new Date(b.fechaEntregaAlumno).getTime() : 0;
+                    return dateB - dateA;
+                  })
+                  .map((tarea) => (
+                    <Card key={tarea.id} className="border hover:border-purple-300 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-sm mb-1">{tarea.titulo}</h4>
+                            <Badge variant="outline" className="text-xs mb-2">
+                              {tarea.claseNombre}
+                            </Badge>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-purple-600">
+                              {tarea.calificacion}
+                            </div>
+                            <div className="text-xs text-gray-500">/ 10</div>
+                          </div>
+                        </div>
+                        {tarea.comentarioProfesor && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs font-medium text-gray-700 mb-1">Comentario del profesor:</p>
+                            <p className="text-xs text-gray-600">{tarea.comentarioProfesor}</p>
+                          </div>
+                        )}
+                        <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {tarea.fechaEntregaAlumno
+                              ? new Date(tarea.fechaEntregaAlumno).toLocaleDateString('es-ES')
+                              : 'Sin fecha'}
+                          </span>
+                          {tarea.estado === 'RETRASADA' && (
+                            <Badge variant="destructive" className="text-xs">
+                              Entrega tardía
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
 
@@ -457,7 +603,20 @@ export function StudentView() {
                 <div className="space-y-3">
                   <div className="p-3 bg-gray-50 rounded border">
                     <p className="text-sm font-medium mb-2">Tu entrega:</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTarea.contenidoEntrega}</p>
+                    {selectedTarea.contenidoEntrega && (
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">{selectedTarea.contenidoEntrega}</p>
+                    )}
+                    {selectedTarea.archivoUrl && selectedTarea.entregaId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadFile(selectedTarea.entregaId!)}
+                        className="mt-2"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Descargar archivo adjunto
+                      </Button>
+                    )}
                     <p className="text-xs text-gray-500 mt-2">
                       Entregado el: {selectedTarea.fechaEntregaAlumno && new Date(selectedTarea.fechaEntregaAlumno).toLocaleString('es-ES')}
                     </p>
@@ -489,24 +648,68 @@ export function StudentView() {
               ) : (
                 <form onSubmit={handleSubmitTarea} className="space-y-4">
                   <div>
-                    <Label htmlFor="contenido">Tu respuesta *</Label>
+                    <Label htmlFor="contenido">Tu respuesta</Label>
                     <Textarea
                       id="contenido"
                       value={contenidoEntrega}
                       onChange={(e) => setContenidoEntrega(e.target.value)}
                       placeholder="Escribe tu respuesta aquí..."
-                      rows={8}
-                      required
+                      rows={6}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Describe tu trabajo, adjunta enlaces o escribe tu respuesta completa.
+                      Describe tu trabajo o adjunta un archivo.
                     </p>
                   </div>
+
+                  <div>
+                    <Label htmlFor="archivo">Archivo adjunto (opcional, máx. 50MB)</Label>
+                    <div className="mt-2">
+                      {!selectedFile ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            id="archivo"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => document.getElementById('archivo')?.click()}
+                            className="w-full"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Seleccionar archivo
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                          <File className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-blue-900 truncate">{selectedFile.name}</p>
+                            <p className="text-xs text-blue-600">
+                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            className="flex-shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" className="flex-1" onClick={() => setShowTareaDialog(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isSubmitting || !contenidoEntrega.trim()}>
+                    <Button type="submit" className="flex-1" disabled={isSubmitting || (!contenidoEntrega.trim() && !selectedFile)}>
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

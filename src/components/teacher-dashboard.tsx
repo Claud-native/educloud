@@ -16,7 +16,10 @@ import {
   Calendar,
   Star,
   FileText,
-  Clock
+  Clock,
+  Download,
+  File,
+  Eye
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import api from '../services/api';
@@ -58,6 +61,7 @@ interface EntregaTarea {
   estado: string;
   calificacion: number | null;
   comentarioProfesor: string | null;
+  archivoUrl?: string;
 }
 
 export function TeacherDashboard() {
@@ -1112,6 +1116,91 @@ export function TeacherDashboard() {
                           </div>
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">{entrega.contenido}</p>
                         </div>
+                        {entrega.archivoUrl && (
+                          <div className="mt-2 p-3 bg-green-50 rounded border border-green-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <File className="h-4 w-4 text-green-600" />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-green-800">Archivo adjunto</span>
+                                  <span className="text-xs text-green-600">{entrega.archivoUrl}</span>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    try {
+                                      const token = localStorage.getItem('token');
+                                      const response = await fetch(
+                                        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
+                                        {
+                                          headers: {
+                                            'Authorization': token ? `Bearer ${token}` : ''
+                                          }
+                                        }
+                                      );
+
+                                      if (!response.ok) throw new Error('Error al cargar archivo');
+
+                                      const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+                                      const blob = await response.blob();
+                                      const blobWithType = new Blob([blob], { type: contentType });
+                                      const url = window.URL.createObjectURL(blobWithType);
+                                      window.open(url, '_blank');
+
+                                      // Limpiar el URL después de un tiempo
+                                      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                                    } catch (err) {
+                                      console.error('Error al ver archivo:', err);
+                                      setError('Error al ver el archivo');
+                                    }
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  Ver
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    try {
+                                      const token = localStorage.getItem('token');
+                                      const response = await fetch(
+                                        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
+                                        {
+                                          headers: {
+                                            'Authorization': token ? `Bearer ${token}` : ''
+                                          }
+                                        }
+                                      );
+
+                                      if (!response.ok) throw new Error('Error al descargar archivo');
+
+                                      const blob = await response.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const fileName = entrega.archivoUrl || 'archivo';
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = fileName;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      window.URL.revokeObjectURL(url);
+                                      document.body.removeChild(a);
+                                    } catch (err) {
+                                      console.error('Error al descargar archivo:', err);
+                                      setError('Error al descargar el archivo');
+                                    }
+                                  }}
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  Descargar
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {entrega.comentarioProfesor && (
                           <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                             <span className="text-xs font-medium text-blue-700">Comentario:</span>
@@ -1143,6 +1232,93 @@ export function TeacherDashboard() {
                 <p className="text-sm font-medium mb-2">Contenido entregado:</p>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedEntrega.contenido}</p>
               </div>
+              {selectedEntrega.archivoUrl && (
+                <div className="p-3 bg-green-50 rounded border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <File className="h-4 w-4 text-green-600" />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-green-800">Archivo adjunto</span>
+                        <span className="text-xs text-green-600">{selectedEntrega.archivoUrl}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token');
+                            const response = await fetch(
+                              `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${selectedEntrega.id}/archivo`,
+                              {
+                                headers: {
+                                  'Authorization': token ? `Bearer ${token}` : ''
+                                }
+                              }
+                            );
+
+                            if (!response.ok) throw new Error('Error al cargar archivo');
+
+                            const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+                            const blob = await response.blob();
+                            const blobWithType = new Blob([blob], { type: contentType });
+                            const url = window.URL.createObjectURL(blobWithType);
+                            window.open(url, '_blank');
+
+                            // Limpiar el URL después de un tiempo
+                            setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+                          } catch (err) {
+                            console.error('Error al ver archivo:', err);
+                            setError('Error al ver el archivo');
+                          }
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token');
+                            const response = await fetch(
+                              `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${selectedEntrega.id}/archivo`,
+                              {
+                                headers: {
+                                  'Authorization': token ? `Bearer ${token}` : ''
+                                }
+                              }
+                            );
+
+                            if (!response.ok) throw new Error('Error al descargar archivo');
+
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const fileName = selectedEntrega.archivoUrl || 'archivo';
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          } catch (err) {
+                            console.error('Error al descargar archivo:', err);
+                            setError('Error al descargar el archivo');
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Descargar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="calificacion">Calificación (0-10) *</Label>
                 <Input
