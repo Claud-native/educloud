@@ -53,6 +53,7 @@ interface Tarea {
 
 interface EntregaTarea {
   id: number;
+  tareaId: number;
   estudianteId: number;
   estudianteNombre: string;
   contenido: string;
@@ -306,6 +307,28 @@ export function TeacherDashboard() {
     setSelectedTarea(tarea);
     setShowTareaDialog(true);
     await loadEntregas(tarea.id);
+  };
+
+  const loadAllEntregasForClass = async () => {
+    try {
+      setIsLoadingEntregas(true);
+      const allEntregas: EntregaTarea[] = [];
+
+      // Cargar entregas de todas las tareas de la clase
+      for (const tarea of tareas) {
+        const response = await api.get(`/tareas/${tarea.id}/entregas`);
+        if (response && Array.isArray(response)) {
+          allEntregas.push(...response);
+        }
+      }
+
+      setEntregas(allEntregas);
+    } catch (err: any) {
+      console.error('Error al cargar entregas:', err);
+      setEntregas([]);
+    } finally {
+      setIsLoadingEntregas(false);
+    }
   };
 
   if (loading) {
@@ -842,9 +865,10 @@ export function TeacherDashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
+                          onClick={async () => {
                             setSelectedEstudiante(estudiante);
                             setShowEstudianteDialog(true);
+                            await loadAllEntregasForClass();
                           }}
                         >
                           Ver Detalles
@@ -1099,14 +1123,14 @@ export function TeacherDashboard() {
                         .filter(e => e.estudianteId === selectedEstudiante.id)
                         .sort((a, b) => new Date(b.fechaEntrega).getTime() - new Date(a.fechaEntrega).getTime())
                         .map((entrega) => {
-                          const tarea = tareas.find(t => entregas.some(e => e.id === entrega.id));
+                          const tarea = tareas.find(t => t.id === entrega.tareaId);
                           return (
                             <Card key={entrega.id} className="border hover:border-blue-300 transition-colors">
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1">
                                     <h5 className="font-semibold text-sm mb-1">
-                                      {tareas.find(t => t.id === selectedTarea?.id)?.titulo || 'Tarea'}
+                                      {tarea?.titulo || 'Tarea'}
                                     </h5>
                                     <Badge variant={entrega.calificacion !== null ? 'default' : entrega.estado === 'RETRASADA' ? 'destructive' : 'secondary'} className="text-xs">
                                       {entrega.calificacion !== null ? 'REVISADA' : entrega.estado}
@@ -1152,8 +1176,8 @@ export function TeacherDashboard() {
                   Tareas Pendientes
                 </h4>
                 {(() => {
-                  const entregasIds = entregas.filter(e => e.estudianteId === selectedEstudiante.id).map(e => e.id);
-                  const tareasPendientes = tareas.filter(t => !entregasIds.includes(t.id));
+                  const tareasEntregadasIds = entregas.filter(e => e.estudianteId === selectedEstudiante.id).map(e => e.tareaId);
+                  const tareasPendientes = tareas.filter(t => !tareasEntregadasIds.includes(t.id));
 
                   if (tareasPendientes.length === 0) {
                     return (
@@ -1228,8 +1252,9 @@ export function TeacherDashboard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {entregas.map((entrega) => (
+                  <div className="max-h-[400px] overflow-y-auto pr-2">
+                    <div className="space-y-3">
+                      {entregas.map((entrega) => (
                       <div key={entrega.id} className="border rounded-lg p-4 hover:bg-gray-50">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
@@ -1331,6 +1356,7 @@ export function TeacherDashboard() {
                         )}
                       </div>
                     ))}
+                    </div>
                   </div>
                 )}
               </div>
