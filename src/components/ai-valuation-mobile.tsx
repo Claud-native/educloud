@@ -106,7 +106,7 @@ export function AIValuationMobile() {
       </div>
 
       {/* Stats */}
-      {result && result.success && (
+      {result && result.success && result.statistics && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white">
             <CardContent className="pt-6">
@@ -258,7 +258,7 @@ export function AIValuationMobile() {
                     <Package className="h-5 w-5" />
                     Precios en Plataformas
                   </CardTitle>
-                  <CardDescription>{result.statistics.count} resultados encontrados</CardDescription>
+                  <CardDescription>{result.statistics?.count || 0} resultados encontrados</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
