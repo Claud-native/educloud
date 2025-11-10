@@ -67,7 +67,7 @@ export function StudentView() {
   const [showTareaDialog, setShowTareaDialog] = useState(false);
   const [contenidoEntrega, setContenidoEntrega] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -109,12 +109,32 @@ export function StudentView() {
     try {
       setIsSubmitting(true);
 
-      // Si hay archivo, usar el endpoint con FormData
-      if (selectedFile) {
+      // Si hay archivos, usar el endpoint con FormData
+      if (selectedFiles.length > 0) {
+        // Validar tamaño total antes de enviar
+        const totalSize = selectedFiles.reduce((sum: number, file: File) => sum + file.size, 0);
+        const maxSize = 50 * 1024 * 1024; // 50MB en bytes
+
+        console.log('Validación antes de enviar:');
+        console.log('- Archivos a enviar:', selectedFiles.length);
+        console.log('- Tamaño total:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
+
+        if (totalSize > maxSize) {
+          const errorMsg = `El tamaño total de los archivos (${(totalSize / 1024 / 1024).toFixed(2)} MB) supera el límite de 50MB`;
+          setError(errorMsg);
+          console.error(errorMsg);
+          setIsSubmitting(false);
+          return;
+        }
+
         const formData = new FormData();
         formData.append('tareaId', selectedTarea.id.toString());
         formData.append('contenido', contenidoEntrega);
-        formData.append('archivo', selectedFile);
+
+        // Agregar todos los archivos
+        selectedFiles.forEach((file: File) => {
+          formData.append('archivos', file);
+        });
 
         const token = localStorage.getItem('token');
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregar-con-archivo`, {
@@ -126,10 +146,11 @@ export function StudentView() {
         });
 
         if (!response.ok) {
-          throw new Error('Error al entregar tarea con archivo');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Error al entregar tarea con archivos');
         }
       } else {
-        // Sin archivo, usar el endpoint normal
+        // Sin archivos, usar el endpoint normal
         await api.post('/tareas/entregar', {
           tareaId: selectedTarea.id,
           contenido: contenidoEntrega
@@ -138,7 +159,7 @@ export function StudentView() {
 
       // Limpiar y cerrar
       setContenidoEntrega('');
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setShowTareaDialog(false);
 
       // Recargar tareas
@@ -153,18 +174,38 @@ export function StudentView() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      // Validar tamaño máximo (50MB)
-      if (file.size > 50 * 1024 * 1024) {
-        setError('El archivo no puede superar los 50MB');
+      const newFiles: File[] = Array.from(e.target.files);
+
+      // Combinar archivos existentes con los nuevos
+      const allFiles = [...selectedFiles, ...newFiles];
+
+      // Validar tamaño total (50MB)
+      const totalSize = allFiles.reduce((sum: number, file: File) => sum + file.size, 0);
+      const maxSize = 50 * 1024 * 1024; // 50MB en bytes
+
+      console.log('Validación de archivos:');
+      console.log('- Archivos totales:', allFiles.length);
+      console.log('- Tamaño total:', (totalSize / 1024 / 1024).toFixed(2), 'MB');
+      console.log('- Límite:', (maxSize / 1024 / 1024).toFixed(2), 'MB');
+
+      if (totalSize > maxSize) {
+        const errorMsg = `El tamaño total de los archivos (${(totalSize / 1024 / 1024).toFixed(2)} MB) no puede superar los 50MB`;
+        setError(errorMsg);
+        console.error(errorMsg);
+        // Limpiar el input
+        e.target.value = '';
         return;
       }
-      setSelectedFile(file);
+
+      setSelectedFiles(allFiles);
+
+      // Limpiar el input para permitir seleccionar el mismo archivo de nuevo
+      e.target.value = '';
     }
   };
 
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev: File[]) => prev.filter((_: File, i: number) => i !== index));
   };
 
   const handleDownloadFile = async (entregaId: number) => {
@@ -740,44 +781,52 @@ export function StudentView() {
                   </div>
 
                   <div>
-                    <Label htmlFor="archivo">Archivo adjunto (opcional, máx. 50MB)</Label>
-                    <div className="mt-2">
-                      {!selectedFile ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="file"
-                            id="archivo"
-                            onChange={handleFileChange}
-                            className="hidden"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => document.getElementById('archivo')?.click()}
-                            className="w-full"
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Seleccionar archivo
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded">
-                          <File className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-blue-900 truncate">{selectedFile.name}</p>
-                            <p className="text-xs text-blue-600">
-                              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            className="flex-shrink-0"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                    <Label htmlFor="archivo">Archivos adjuntos (opcional, máx. 50MB en total)</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          id="archivo"
+                          multiple
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById('archivo')?.click()}
+                          className="w-full"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Seleccionar archivos
+                        </Button>
+                      </div>
+
+                      {selectedFiles.length > 0 && (
+                        <div className="space-y-2">
+                          {selectedFiles.map((file: File, index: number) => (
+                            <div key={index} className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                              <File className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-blue-900 truncate">{file.name}</p>
+                                <p className="text-xs text-blue-600">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFile(index)}
+                                className="flex-shrink-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <p className="text-xs text-gray-600">
+                            Total: {(selectedFiles.reduce((sum: number, f: File) => sum + f.size, 0) / 1024 / 1024).toFixed(2)} MB / 50 MB
+                          </p>
                         </div>
                       )}
                     </div>
@@ -787,7 +836,7 @@ export function StudentView() {
                     <Button type="button" variant="outline" className="flex-1" onClick={() => setShowTareaDialog(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" className="flex-1" disabled={isSubmitting || (!contenidoEntrega.trim() && !selectedFile)}>
+                    <Button type="submit" className="flex-1" disabled={isSubmitting || (!contenidoEntrega.trim() && selectedFiles.length === 0)}>
                       {isSubmitting ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

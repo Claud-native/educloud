@@ -1219,7 +1219,7 @@ export function TeacherDashboard() {
 
       {/* Dialog para ver entregas de la tarea */}
       <Dialog open={showTareaDialog} onOpenChange={setShowTareaDialog}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Entregas de la Tarea</DialogTitle>
             <DialogDescription>
@@ -1300,52 +1300,69 @@ export function TeacherDashboard() {
                           <p className="text-sm text-gray-700 whitespace-pre-wrap">{entrega.contenido}</p>
                         </div>
                         {entrega.archivoUrl && (
-                          <div className="mt-2 p-3 bg-green-50 rounded border border-green-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <File className="h-4 w-4 text-green-600" />
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium text-green-800">Archivo adjunto</span>
-                                  <span className="text-xs text-green-600">{entrega.archivoUrl}</span>
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  try {
-                                    const token = localStorage.getItem('token');
-                                    const response = await fetch(
-                                      `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
-                                      {
-                                        headers: {
-                                          'Authorization': token ? `Bearer ${token}` : ''
-                                        }
-                                      }
-                                    );
-
-                                    if (!response.ok) throw new Error('Error al descargar archivo');
-
-                                    const blob = await response.blob();
-                                    const url = window.URL.createObjectURL(blob);
-                                    const fileName = entrega.archivoUrl || 'archivo';
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = fileName;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    window.URL.revokeObjectURL(url);
-                                    document.body.removeChild(a);
-                                  } catch (err) {
-                                    console.error('Error al descargar archivo:', err);
-                                    setError('Error al descargar el archivo');
-                                  }
-                                }}
-                              >
-                                <Download className="h-4 w-4 mr-1" />
-                                Descargar
-                              </Button>
+                          <div className="mt-2 space-y-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <File className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm font-medium">
+                                Archivos adjuntos ({entrega.archivoUrl.split(',').length})
+                              </span>
                             </div>
+                            {entrega.archivoUrl.split(',').map((fileName: string, index: number) => {
+                              const trimmedFileName = fileName.trim();
+                              return (
+                                <div key={index} className="p-3 bg-green-50 rounded border border-green-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <File className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                      <div className="flex flex-col min-w-0 flex-1">
+                                        <span className="text-sm font-medium text-green-800 truncate" title={trimmedFileName}>
+                                          {trimmedFileName}
+                                        </span>
+                                        <span className="text-xs text-green-600">
+                                          Archivo {index + 1}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="ml-2 flex-shrink-0"
+                                      onClick={async () => {
+                                        try {
+                                          const token = localStorage.getItem('token');
+                                          const response = await fetch(
+                                            `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/archivos/${encodeURIComponent(trimmedFileName)}`,
+                                            {
+                                              headers: {
+                                                'Authorization': token ? `Bearer ${token}` : ''
+                                              }
+                                            }
+                                          );
+
+                                          if (!response.ok) throw new Error('Error al descargar archivo');
+
+                                          const blob = await response.blob();
+                                          const url = window.URL.createObjectURL(blob);
+                                          const a = document.createElement('a');
+                                          a.href = url;
+                                          a.download = trimmedFileName;
+                                          document.body.appendChild(a);
+                                          a.click();
+                                          window.URL.revokeObjectURL(url);
+                                          document.body.removeChild(a);
+                                        } catch (err) {
+                                          console.error('Error al descargar archivo:', err);
+                                          setError('Error al descargar el archivo');
+                                        }
+                                      }}
+                                    >
+                                      <Download className="h-4 w-4 mr-1" />
+                                      Descargar
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                         {entrega.comentarioProfesor && (
