@@ -18,8 +18,7 @@ import {
   FileText,
   Clock,
   Download,
-  File,
-  Eye
+  File
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import api from '../services/api';
@@ -1126,78 +1125,42 @@ export function TeacherDashboard() {
                                   <span className="text-xs text-green-600">{entrega.archivoUrl}</span>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={async () => {
-                                    try {
-                                      const token = localStorage.getItem('token');
-                                      const response = await fetch(
-                                        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
-                                        {
-                                          headers: {
-                                            'Authorization': token ? `Bearer ${token}` : ''
-                                          }
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    const token = localStorage.getItem('token');
+                                    const response = await fetch(
+                                      `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
+                                      {
+                                        headers: {
+                                          'Authorization': token ? `Bearer ${token}` : ''
                                         }
-                                      );
+                                      }
+                                    );
 
-                                      if (!response.ok) throw new Error('Error al cargar archivo');
+                                    if (!response.ok) throw new Error('Error al descargar archivo');
 
-                                      const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
-                                      const blob = await response.blob();
-                                      const blobWithType = new Blob([blob], { type: contentType });
-                                      const url = window.URL.createObjectURL(blobWithType);
-                                      window.open(url, '_blank');
-
-                                      // Limpiar el URL después de un tiempo
-                                      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
-                                    } catch (err) {
-                                      console.error('Error al ver archivo:', err);
-                                      setError('Error al ver el archivo');
-                                    }
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  Ver
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={async () => {
-                                    try {
-                                      const token = localStorage.getItem('token');
-                                      const response = await fetch(
-                                        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${entrega.id}/archivo`,
-                                        {
-                                          headers: {
-                                            'Authorization': token ? `Bearer ${token}` : ''
-                                          }
-                                        }
-                                      );
-
-                                      if (!response.ok) throw new Error('Error al descargar archivo');
-
-                                      const blob = await response.blob();
-                                      const url = window.URL.createObjectURL(blob);
-                                      const fileName = entrega.archivoUrl || 'archivo';
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = fileName;
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      window.URL.revokeObjectURL(url);
-                                      document.body.removeChild(a);
-                                    } catch (err) {
-                                      console.error('Error al descargar archivo:', err);
-                                      setError('Error al descargar el archivo');
-                                    }
-                                  }}
-                                >
-                                  <Download className="h-4 w-4 mr-1" />
-                                  Descargar
-                                </Button>
-                              </div>
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const fileName = entrega.archivoUrl || 'archivo';
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = fileName;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(url);
+                                    document.body.removeChild(a);
+                                  } catch (err) {
+                                    console.error('Error al descargar archivo:', err);
+                                    setError('Error al descargar el archivo');
+                                  }
+                                }}
+                              >
+                                <Download className="h-4 w-4 mr-1" />
+                                Descargar
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -1242,80 +1205,43 @@ export function TeacherDashboard() {
                         <span className="text-xs text-green-600">{selectedEntrega.archivoUrl}</span>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const token = localStorage.getItem('token');
-                            const response = await fetch(
-                              `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${selectedEntrega.id}/archivo`,
-                              {
-                                headers: {
-                                  'Authorization': token ? `Bearer ${token}` : ''
-                                }
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem('token');
+                          const response = await fetch(
+                            `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${selectedEntrega.id}/archivo`,
+                            {
+                              headers: {
+                                'Authorization': token ? `Bearer ${token}` : ''
                               }
-                            );
+                            }
+                          );
 
-                            if (!response.ok) throw new Error('Error al cargar archivo');
+                          if (!response.ok) throw new Error('Error al descargar archivo');
 
-                            const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
-                            const blob = await response.blob();
-                            const blobWithType = new Blob([blob], { type: contentType });
-                            const url = window.URL.createObjectURL(blobWithType);
-                            window.open(url, '_blank');
-
-                            // Limpiar el URL después de un tiempo
-                            setTimeout(() => window.URL.revokeObjectURL(url), 60000);
-                          } catch (err) {
-                            console.error('Error al ver archivo:', err);
-                            setError('Error al ver el archivo');
-                          }
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const token = localStorage.getItem('token');
-                            const response = await fetch(
-                              `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/tareas/entregas/${selectedEntrega.id}/archivo`,
-                              {
-                                headers: {
-                                  'Authorization': token ? `Bearer ${token}` : ''
-                                }
-                              }
-                            );
-
-                            if (!response.ok) throw new Error('Error al descargar archivo');
-
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const fileName = selectedEntrega.archivoUrl || 'archivo';
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = fileName;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                          } catch (err) {
-                            console.error('Error al descargar archivo:', err);
-                            setError('Error al descargar el archivo');
-                          }
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Descargar
-                      </Button>
-                    </div>
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const fileName = selectedEntrega.archivoUrl || 'archivo';
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = fileName;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                        } catch (err) {
+                          console.error('Error al descargar archivo:', err);
+                          setError('Error al descargar el archivo');
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Descargar
+                    </Button>
                   </div>
                 </div>
               )}

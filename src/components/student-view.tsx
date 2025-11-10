@@ -93,13 +93,9 @@ export function StudentView() {
   const loadTareas = async () => {
     try {
       setLoadingTareas(true);
-      console.log('=== FRONTEND: Cargando tareas del estudiante ===');
-      console.log('Usuario actual:', user);
       const response = await api.get('/tareas/mis-tareas');
-      console.log('Tareas recibidas:', response);
       setTareas(response || []);
     } catch (err: any) {
-      console.error('Error al cargar tareas:', err);
       setTareas([]);
     } finally {
       setLoadingTareas(false);
@@ -537,7 +533,7 @@ export function StudentView() {
 
       {/* Dialog para ver detalles de la clase */}
       <Dialog open={showClaseDialog} onOpenChange={setShowClaseDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalles de la Clase</DialogTitle>
             <DialogDescription>
@@ -570,10 +566,92 @@ export function StudentView() {
                   <p className="text-base text-gray-700">{selectedClase.descripcion}</p>
                 </div>
               )}
+
+              {/* Estadísticas de la clase */}
               <div className="pt-4 border-t">
-                <p className="text-sm text-gray-500">
-                  Funcionalidades adicionales como lista de compañeros, tareas de esta clase y calificaciones específicas estarán disponibles próximamente.
-                </p>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-purple-600" />
+                  Mis Estadísticas en esta Clase
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="border">
+                    <CardContent className="pt-3 pb-2 text-center">
+                      <div className="text-xl font-bold text-blue-600">
+                        {tareas.filter(t => t.claseId === selectedClase.id).length}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Tareas</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border">
+                    <CardContent className="pt-3 pb-2 text-center">
+                      <div className="text-xl font-bold text-green-600">
+                        {tareas.filter(t => t.claseId === selectedClase.id && t.entregada).length}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Entregadas</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border">
+                    <CardContent className="pt-3 pb-2 text-center">
+                      <div className="text-xl font-bold text-purple-600">
+                        {tareas.filter(t => t.claseId === selectedClase.id && t.calificacion !== undefined).length > 0
+                          ? (tareas.filter(t => t.claseId === selectedClase.id && t.calificacion !== undefined).reduce((sum, t) => sum + (t.calificacion || 0), 0) / tareas.filter(t => t.claseId === selectedClase.id && t.calificacion !== undefined).length).toFixed(1)
+                          : '-'}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Promedio</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Tareas de esta clase */}
+              <div className="pt-4 border-t">
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-green-600" />
+                  Tareas de esta Clase
+                </h4>
+                {tareas.filter(t => t.claseId === selectedClase.id).length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No hay tareas asignadas en esta clase</p>
+                ) : (
+                  <ScrollArea className="h-[250px]">
+                    <div className="space-y-2">
+                      {tareas.filter(t => t.claseId === selectedClase.id).map((tarea) => (
+                        <Card key={tarea.id} className="border hover:border-blue-300 transition-colors">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between mb-1">
+                              <h5 className="font-semibold text-sm flex-1">{tarea.titulo}</h5>
+                              <Badge variant={tarea.entregada ? (tarea.calificacion !== undefined ? 'default' : 'secondary') : tarea.estado === 'RETRASADA' ? 'destructive' : 'outline'} className="text-xs">
+                                {tarea.entregada ? (tarea.calificacion !== undefined ? 'Calificada' : 'Entregada') : tarea.estado}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(tarea.fechaEntrega).toLocaleDateString('es-ES')}
+                              </span>
+                              {tarea.calificacion !== undefined && (
+                                <span className="flex items-center gap-1 text-blue-600 font-medium">
+                                  <Star className="h-3 w-3" />
+                                  {tarea.calificacion}/10
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              className="w-full text-xs h-7"
+                              variant={tarea.entregada ? 'outline' : 'default'}
+                              onClick={() => {
+                                setShowClaseDialog(false);
+                                handleViewTarea(tarea);
+                              }}
+                            >
+                              {tarea.entregada ? 'Ver Entrega' : 'Entregar Tarea'}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
               </div>
             </div>
           )}
