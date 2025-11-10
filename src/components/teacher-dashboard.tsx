@@ -999,35 +999,194 @@ export function TeacherDashboard() {
 
       {/* Dialog para ver detalles del estudiante */}
       <Dialog open={showEstudianteDialog} onOpenChange={setShowEstudianteDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Detalles del Estudiante</DialogTitle>
             <DialogDescription>
-              Información completa del estudiante
+              Información completa del estudiante y su desempeño
             </DialogDescription>
           </DialogHeader>
-          {selectedEstudiante && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Nombre Completo</Label>
-                  <p className="mt-1 text-base">
-                    {selectedEstudiante.nombre} {selectedEstudiante.apellido1} {selectedEstudiante.apellido2}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Email</Label>
-                  <p className="mt-1 text-base">{selectedEstudiante.email}</p>
-                </div>
-              </div>
+          {selectedEstudiante && selectedClase && (
+            <div className="space-y-6">
+              {/* Información básica */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Nombre Completo</Label>
+                      <p className="mt-1 text-base font-semibold">
+                        {selectedEstudiante.nombre} {selectedEstudiante.apellido1} {selectedEstudiante.apellido2}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Email</Label>
+                      <p className="mt-1 text-base">{selectedEstudiante.email}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium text-gray-500">Clase Actual</Label>
+                    <p className="mt-1 text-base">{selectedClase.nombre} - {selectedClase.materia}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Estadísticas del estudiante en esta clase */}
               <div>
-                <Label className="text-sm font-medium text-gray-500">ID de Usuario</Label>
-                <p className="mt-1 text-base font-mono text-sm">{selectedEstudiante.id}</p>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Star className="h-4 w-4 text-purple-600" />
+                  Rendimiento en {selectedClase.nombre}
+                </h4>
+                <div className="grid grid-cols-4 gap-3">
+                  <Card className="border">
+                    <CardContent className="pt-4 pb-3 text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {tareas.length}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Tareas Totales</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border">
+                    <CardContent className="pt-4 pb-3 text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {entregas.filter(e => e.estudianteId === selectedEstudiante.id).length}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Entregadas</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border">
+                    <CardContent className="pt-4 pb-3 text-center">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {tareas.length - entregas.filter(e => e.estudianteId === selectedEstudiante.id).length}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Pendientes</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border">
+                    <CardContent className="pt-4 pb-3 text-center">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {(() => {
+                          const entregasCalificadas = entregas.filter(
+                            e => e.estudianteId === selectedEstudiante.id && e.calificacion !== null
+                          );
+                          if (entregasCalificadas.length === 0) return '-';
+                          const promedio = entregasCalificadas.reduce((sum, e) => sum + (e.calificacion || 0), 0) / entregasCalificadas.length;
+                          return promedio.toFixed(1);
+                        })()}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">Promedio</div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-500">
-                  Funcionalidades adicionales como historial de entregas, notas y asistencia estarán disponibles próximamente.
-                </p>
+
+              {/* Historial de entregas */}
+              <div>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-green-600" />
+                  Historial de Entregas
+                </h4>
+                {entregas.filter(e => e.estudianteId === selectedEstudiante.id).length === 0 ? (
+                  <Card className="border">
+                    <CardContent className="pt-6 pb-6 text-center text-gray-500">
+                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">Este estudiante no ha entregado ninguna tarea aún</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="max-h-[300px] overflow-y-auto pr-2">
+                    <div className="space-y-2">
+                      {entregas
+                        .filter(e => e.estudianteId === selectedEstudiante.id)
+                        .sort((a, b) => new Date(b.fechaEntrega).getTime() - new Date(a.fechaEntrega).getTime())
+                        .map((entrega) => {
+                          const tarea = tareas.find(t => entregas.some(e => e.id === entrega.id));
+                          return (
+                            <Card key={entrega.id} className="border hover:border-blue-300 transition-colors">
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1">
+                                    <h5 className="font-semibold text-sm mb-1">
+                                      {tareas.find(t => t.id === selectedTarea?.id)?.titulo || 'Tarea'}
+                                    </h5>
+                                    <Badge variant={entrega.calificacion !== null ? 'default' : entrega.estado === 'RETRASADA' ? 'destructive' : 'secondary'} className="text-xs">
+                                      {entrega.calificacion !== null ? 'REVISADA' : entrega.estado}
+                                    </Badge>
+                                  </div>
+                                  {entrega.calificacion !== null && (
+                                    <div className="text-right">
+                                      <div className="text-2xl font-bold text-purple-600">{entrega.calificacion}</div>
+                                      <div className="text-xs text-gray-500">/ 10</div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {new Date(entrega.fechaEntrega).toLocaleDateString('es-ES')}
+                                  </span>
+                                  {entrega.archivoUrl && (
+                                    <span className="flex items-center gap-1 text-blue-600">
+                                      <File className="h-3 w-3" />
+                                      Archivo adjunto
+                                    </span>
+                                  )}
+                                </div>
+                                {entrega.comentarioProfesor && (
+                                  <div className="mt-3 p-2 bg-blue-50 rounded text-xs">
+                                    <span className="font-medium">Comentario:</span> {entrega.comentarioProfesor}
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tareas pendientes */}
+              <div>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                  Tareas Pendientes
+                </h4>
+                {(() => {
+                  const entregasIds = entregas.filter(e => e.estudianteId === selectedEstudiante.id).map(e => e.id);
+                  const tareasPendientes = tareas.filter(t => !entregasIds.includes(t.id));
+
+                  if (tareasPendientes.length === 0) {
+                    return (
+                      <Card className="border border-green-200 bg-green-50">
+                        <CardContent className="pt-6 pb-6 text-center text-green-700">
+                          <GraduationCap className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p className="text-sm font-medium">¡Excelente! Todas las tareas están al día</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      {tareasPendientes.map((tarea) => (
+                        <Card key={tarea.id} className="border border-orange-200 hover:border-orange-300 transition-colors">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h5 className="font-semibold text-sm">{tarea.titulo}</h5>
+                                <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  Vence: {new Date(tarea.fechaEntrega).toLocaleDateString('es-ES')}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">Pendiente</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

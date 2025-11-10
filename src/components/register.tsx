@@ -260,7 +260,7 @@ export function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     value={formData.password}
                     onChange={(e) => updateFormData('password', e.target.value)}
                     className="pl-10 pr-10"
