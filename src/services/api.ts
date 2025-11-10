@@ -1,8 +1,7 @@
 import { cryptoService } from './crypto';
 
 // URL base del API desde variables de entorno
-const API_BASE = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.DEV ? 'http://localhost:8080/api' : window.location.origin + '/api');
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.DEV ? 'http://localhost:8080' : window.location.origin);
 
 // Validación en producción
 if (!API_BASE && import.meta.PROD) {
@@ -54,7 +53,7 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
     // TODO: Habilitar nonce cuando el backend agregue X-Nonce a CORS
     const nonce = cryptoService.generateNonce();
 
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,7 +98,7 @@ export const register = async (userData: RegisterData): Promise<AuthResponse> =>
     // Generar nonce para prevenir ataques de replay
     const nonce = cryptoService.generateNonce();
 
-    const response = await fetch(`${API_BASE}/auth/register`, {
+    const response = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -138,7 +137,7 @@ export const logout = async (): Promise<AuthResponse> => {
   try {
     const token = getToken();
 
-    const response = await fetch(`${API_BASE}/auth/logout`, {
+    const response = await fetch(`${API_BASE}/api/auth/logout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -210,7 +209,7 @@ export const healthCheck = async (): Promise<HealthCheckResponse> => {
   const startTime = Date.now();
 
   try {
-    const response = await fetch(`${API_BASE}/health`, {
+    const response = await fetch(`${API_BASE}/api/health`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
