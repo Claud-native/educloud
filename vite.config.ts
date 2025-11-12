@@ -31,24 +31,16 @@
           }
         ]
       },
-      workbox: {
-        // Cache de assets
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.educloud\.com\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 // 1 hora
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
+      // Service Worker personalizado para notificaciones push
+      srcDir: 'src',
+      filename: 'sw.ts',
+      strategies: 'injectManifest',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}']
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module'
       }
     })],
     resolve: {
